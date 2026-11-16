@@ -1,0 +1,18 @@
+# Secretos y credenciales: nunca al repositorio
+*.key
+*.pem
+*.pfx
+*secret*
+*password*
+*credenciales*
+.env
+passwords_iniciales*.csv
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+# Ficheros de Windows
+desktop.ini
