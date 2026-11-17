@@ -2,7 +2,7 @@
 
 **Proyecto:** Plan de modernización tecnológica de CiberNova Solutions
 **Equipo:** Grupo 3 – Max (Linux) · Oriol (Windows)
-**Versión:** 0.3 (borrador) · 17/11/2026 · Actualizado con lo ya construido (DC01, OU, grupos y usuarios; LNX01 en VirtualBox)
+**Versión:** 0.4 (borrador) · 17/11/2026 · Actualizado con lo ya construido (DC01, OU, grupos y usuarios; LNX01 en Proxmox) y los datos reales del host
 
 > Este documento recoge el análisis de necesidades, las decisiones técnicas con sus alternativas y el diseño de la infraestructura de la Fase 1. Es un documento vivo: cada cambio queda registrado en el historial de Git y, si supone un desfase, en la [bitácora](../gestion/bitacora.md).
 
@@ -288,7 +288,7 @@ Recursos del host: 2× Xeon E5-2620 v2 (12 núcleos / 24 hilos), 128 GB RAM, 4×
 | Punto | Mitigación en el laboratorio | Solución en producción |
 |---|---|---|
 | Host físico único | RAID 10 por hardware, copias en dos servidores, plan de recuperación | 3 hosts Proxmox en clúster con Ceph |
-| Conexión de red del host (`vmbr0`) | Pendiente comprobar si se puede cablear una segunda NIC (bond active-backup) | Bond en dos switches distintos |
+| Conexión de red del host (`vmbr0`) | **Confirmado (17/11): solo `nic0` tiene cable**; las otras tres NIC están libres. Se puede pedir al profesorado un segundo cable para un bond active-backup **[PENDIENTE DE CONFIRMAR]** | Bond en dos switches distintos |
 | Switch y puerta de enlace del aula | Fuera de nuestro control | Switches apilados y doble salida |
 | Director de Bareos (solo en BKP01) | Director instalado en BKP02 en *cold standby* + copia del catálogo | Director en HA |
 
@@ -397,16 +397,20 @@ Los servidores solo pueden estar encendidos en horario de proyecto y el centro p
 | Red plana sin segmentación: un equipo comprometido llega a todos los servidores | Media | Alto | Firewall en cada servidor y mínimo privilegio; segmentación con VLAN prevista como remediación en la Fase 3 (apartado 3.11) |
 | Apagado brusco de los servidores | Media | Medio | Orden de arranque, apagado ordenado, copias |
 | Fallo del host físico | Baja | Muy alto | RAID 10, copias en dos servidores, plan de recuperación |
-| Problemas al importar OVA de VirtualBox (disco o red no reconocidos, IP perdida) | Media | Medio | Importar con disco SATA y red E1000; reconfigurar la IP; probar primero con una VM no crítica |
+| Problemas al importar OVA de VirtualBox (disco o red no reconocidos, IP perdida) | **Ocurrido** (17/11, LNX01: el asistente no lee la OVA) | Medio | Importación manual (`tar` + `qm create` + `qm importdisk`); Windows con disco SATA y red E1000 hasta instalar VirtIO; reconfigurar la IP |
+| **Cierre del repositorio el 4/12/2026** (11 días antes del fin de la fase) | Cierta | Alto | Calendario replanificado (D-04): servicios y pruebas en las sesiones 2–6; subida final el 4/12 |
+| Poco espacio en `local` (~24 GB libres) para las OVA | Media | Bajo | Subir y borrar las OVA de una en una |
+| **El DNS del aula (192.168.200.254) no responde** a las VMs del rango .23–.33 (comprobado el 17/11), aunque sí hay salida a Internet | **Ocurrido** | Medio | Linux con DNS públicos (8.8.8.8, 1.1.1.1) mientras no estén los DC; después, clientes y servidores → .23/.24 y reenviadores de los DC → 8.8.8.8/1.1.1.1 **[PENDIENTE DE CONFIRMAR]** |
+| Clones de VM con identificadores repetidos (`machine-id`, claves SSH, IP) | Media | Alto | Personalizar cada clon antes de conectarlo con el original encendido (memoria técnica 2.3.5) |
 | DC duplicado o restaurado desde una copia antigua tras la importación | Baja | Muy alto | Importar cada DC una sola vez y apagar definitivamente la copia de VirtualBox |
 
 ---
 
 ## 12. Pendientes
 
-- [ ] Confirmar en el host: `lsblk` (RAID por hardware), `ip -br link` (NIC cableadas; en la instalación se vio una sola UP), `pveversion` y la máscara de `vmbr0` (/22).
+- [x] Host confirmado (17/11): RAID 10 por hardware, LVM-thin, una sola NIC con cable, `vmbr0` /22, Proxmox 9.2.21.
 - [x] ~~La VM Ubuntu "WEB01" (192.168.202.25) se adapta a LNX01 (.28)~~ (16/11). **Anulado el 17/11:** WEB01 no era Ubuntu 24.04; LNX01 se instaló de cero en VirtualBox y se importa como OVA (desfase D-03). La .25 queda para FS01.
-- [ ] Comprobar la versión de Ubuntu de LNX02, BKP01 y BKP02.
+- [x] LNX02, BKP01 y BKP02 no existían (17/11): se crean como LNX01 (VirtualBox + paquetes → OVA → Proxmox).
 - [ ] Decidir la aplicación web (debe usar SQL Server).
 - [ ] Hablar con el profesorado del DHCP en la red del aula y de una segunda NIC.
 - [ ] Fase 2: la IA necesitará al menos una IP; se reutilizarán .32/.33 o se pedirán más.

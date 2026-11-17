@@ -72,9 +72,85 @@ Registro continuo de decisiones, problemas, soluciones y desfases. Una entrada p
 | Medidas | Instalación limpia de Ubuntu Server 24.04.5 en VirtualBox y exportación a `LNX01.ova` (mismo método que Windows, D-01). En clase: importar, IP fija con netplan y apagar WEB01. Alternativas descartadas: `do-release-upgrade` sobre WEB01 (arrastra restos del proyecto anterior) y reinstalar en Proxmox (solo es posible en horario de clase). |
 | Impacto | Ninguno en el calendario si LNX01 se importa en la sesión 1. LNX02, BKP01 y BKP02 quedan pendientes de comprobar la versión; si no son 24.04, se construyen igual. |
 
+### D-04 · Cierre del repositorio de GitHub el 4/12/2026
+
+| Campo | Detalle |
+|---|---|
+| Planificado | Trabajo hasta el 15/12, con las pruebas del Anexo I y las pruebas de caída en la sesión 7 (10/12) y la entrega en la sesión 8 (15/12). |
+| Ocurrido | El 4/12/2026 es el último día para subir o modificar cosas en el repositorio. Todo lo que tenga que estar en la entrega (documentos, scripts, capturas, bitácora) debe estar subido ese día como muy tarde. |
+| Causa | Fecha de cierre de la entrega (comunicada al equipo). |
+| Medidas | Replanificación del calendario (17/11): todos los servicios, las 15 pruebas del Anexo I, las pruebas de caída y la de restauración pasan a las sesiones 2–6 (hasta el jueves 3/12). El viernes 4/12, fuera de horario: última revisión y subida. Las sesiones 7 y 8 quedan para ensayar la defensa (sin cambios en el repositorio). Opción mixta para Linux (paquetes instalados en casa) para ganar tiempo de laboratorio. |
+| Impacto | Alto: se pierden dos sesiones de margen para la entrega. Quedan 5 sesiones (10 h) para todos los servicios y las pruebas. **[PENDIENTE DE CONFIRMAR]** el nuevo calendario por Max y Oriol. |
+
+### D-05 · DC01 no se importó en la sesión 1
+
+| Campo | Detalle |
+|---|---|
+| Planificado | Sesión 1 (17/11): exportar DC01 a OVA, importarlo en Proxmox y comprobar red, DNS y dominio (punto de control del calendario). |
+| Ocurrido | DC01 sigue en VirtualBox; no se exportó ni se importó. |
+| Causa | **[PENDIENTE DE CONFIRMAR]** (Oriol). |
+| Medidas | Plan B del calendario: DC01 sigue en VirtualBox. Se importa al empezar la sesión 2 (19/11). Si el asistente de importación de Proxmox falla como con LNX01, se usa el método manual (`tar` + `qm create` + `qm importdisk`, memoria técnica 2.3.2), con disco SATA y red E1000 hasta instalar los drivers VirtIO. |
+| Impacto | DC02 no se puede promover hasta que DC01 esté en Proxmox: la sesión 2 de Oriol empieza por DC01. Se recupera con el margen de Windows (D-02). |
+
 ---
 
 ## Entradas
+
+### 2026-11-17 · Sesión 1 (15:00–17:00) y tarde con el servidor encendido (permiso del profesor) · Max
+
+**Hecho:**
+- **Comprobaciones del host** (capturas `proxmox_*`):
+  - `lsblk`: un único disco `sda` de 1,6 TB → **RAID 10 por hardware confirmado**. LVM con `pve-root` (96 GB, ext4), `pve-swap` (8 GB) y **thin pool `pve-data` de 1,5 TB**.
+  - `pvesm status`: `local` (directorio, 98 GB, 69 % usado, unos 24 GB libres) y `local-lvm` (**LVM-thin**, 1,5 TB, 6 % usado).
+  - `ip -br link`: **solo `nic0` UP**; `nic1`–`nic3` DOWN (sin cable). Existe un `vmbr1` sin IP ni tarjeta física (origen **[PENDIENTE DE CONFIRMAR]**).
+  - `ip -br addr`: `vmbr0` = **192.168.202.3/22** (máscara correcta).
+  - `pveversion`: pve-manager 9.2.21, kernel 7.0.14-25-pve.
+  - `pveperf /var/lib/vz`: **FSYNCS/SECOND 2235,82**, lecturas 395 MB/s, DNS EXT 396 ms. La caché de la controladora funciona.
+- **VMs antiguas borradas** (100–107: WindSRV1, WindSRV2, UbuntSRV, USRVWEB01 = "WEB01", USRVWEB02, USRVDB01, USRVDB02, W2022P). Eran pruebas vacías, sin protección, plantillas ni instantáneas. Comando: `qm destroy <ID> --purge --destroy-unreferenced-disks 1`. Capturas de antes y después.
+- **LNX01 importada en Proxmox (VMID 128)**: OVA subida por la web (*local → Import → Upload*, hash *None*, 1,81 GiB). El asistente de importación falló y se importó a mano. Configuración: 2 núcleos `host`, 4 GB, `scsi0` 60 GB en `local-lvm` (VirtIO SCSI single, iothread), red VirtIO en `vmbr0`, agente QEMU activado.
+- La tarjeta pasó a llamarse `ens18` y estaba DOWN (el netplan tenía `enp0s3`). Prueba con IP temporal (`sudo ip addr add 192.168.202.28/22 dev ens18` + ruta por defecto): **ping a la puerta de enlace OK e Internet OK** desde la .28.
+- Netplan definitivo por SSH, en curso después de la sesión (con permiso del profesor): **[PENDIENTE DE CONFIRMAR]** el resultado.
+
+**Problemas y soluciones:**
+- Problema: el asistente de importación dio `OVF parser terminated unexpectedly trying to parse /var/lib/vz/import/LNX01.ova (500)`. Con `tar -tvf` se vio que la OVA estaba bien (`.ovf`, `.mf`, `.vmdk`). → Solución: importación manual: `tar -xvf`, `qm create 128 ...`, `qm importdisk 128 lnx01/LNX01-disk001.vmdk local-lvm`, `qm set 128 --scsi0 local-lvm:vm-128-disk-0,iothread=1 --boot order=scsi0`.
+- Problema: `qm create` dio `400 too many arguments`: la `\` de continuación de línea quedó en medio al pegar. → Solución: el comando en una sola línea.
+- Problema: en la consola noVNC no se puede pegar (es una pantalla y un teclado virtuales, sin portapapeles). → Solución: dar IP y trabajar por SSH. Propuesta: consola serie xterm.js (`qm set 128 --serial0 socket` + `serial-getty@ttyS0`).
+- Problema: `ip link set` → "no permitido". → Solución: faltaba `sudo`.
+- Hallazgo: las VMs Ubuntu antiguas se habían instalado con la ISO `ubuntu-26.04.1` (por eso WEB01 no era 24.04), y **los Windows Server tenían el disco en IDE** (`ide0`). Con el FSYNCS del host, el disco IDE emulado es la causa más probable de la lentitud de Windows (D-01).
+- No se pudo usar el navegador integrado de Claude: el certificado de Proxmox es autofirmado. Propuesta: instalar `/etc/pve/pve-root-ca.pem` como CA de confianza en el portátil.
+
+**Decisiones:**
+- Borrar las 8 VMs antiguas (Max).
+- VMID = 100 + último octeto de la IP (LNX01 → 128).
+- **Opción A para crear LNX02 y BKP01: clonar LNX01 en Proxmox** y personalizar cada clon (Max). Alternativa descartada: instalarlas en VirtualBox (una tarde por máquina). Los Linux sí se pueden clonar (no son DC) si cada clon tiene `machine-id`, claves SSH, hostname e IP propios.
+- **Opción mixta para las VMs Linux** (Max): en casa, en VirtualBox, se instala todo lo que no depende de la red (paquetes de SQL Server, Apache/PHP, ODBC, Pacemaker, Kea, Bareos, configuración local). En Proxmox: netplan, clúster, AG, `fence_pve`, Kea HA y unión al dominio. Una vez importada, la copia de Proxmox es la buena y la de VirtualBox no se toca.
+- **LNX02, BKP01 y BKP02 no existen** (las VMs antiguas eran otras y se han borrado): se crean como LNX01.
+
+**Desfase:** Sí: D-05 (DC01 no importado) y D-04 (cierre del repositorio el 4/12, replanificación).
+
+**Preguntas al profesorado:** no dio tiempo (DHCP propio, VLAN, fecha de la defensa). La salida a Internet del rango .23–.33 queda **confirmada** con LNX01.
+
+**Siguiente sesión (jue 19/11):** ver calendario replanificado.
+
+**Después de la sesión (17:30–18:45, servidor encendido con permiso del profesor):**
+- **Netplan fijo en LNX01** por SSH (`ens18`, 192.168.202.28/22, puerta 192.168.200.254). Aguanta el reinicio (`ip -br addr`, SSH y *Summary* de Proxmox con la IP del agente QEMU).
+- **Problema: DNS del aula.** `curl` a `packages.microsoft.com` → `Could not resolve host`. `ping 8.8.8.8` funciona, pero `resolvectl query` se queda colgado con 192.168.200.254. **El router del aula da salida a Internet pero no responde a consultas DNS desde este rango** (esto explica también el FAIL del reenviador en el `dcdiag` de DC01). → Solución: DNS públicos en netplan (`addresses: [8.8.8.8, 1.1.1.1]`), probados antes con `sudo resolvectl dns ens18 8.8.8.8 1.1.1.1`. Cuando estén DC01/DC02, los Linux usarán .23/.24 y los DC reenviarán a 8.8.8.8/1.1.1.1 **[PENDIENTE DE CONFIRMAR]**.
+- Puerto serie añadido a LNX01 (`qm set 128 --serial0 socket`) para la consola xterm.js (falta activar `serial-getty@ttyS0` dentro).
+- Instantánea `base-limpia` de LNX01 (`qm snapshot 128 base-limpia`).
+- **SQL Server 2025 instalado en LNX01, sin configurar**: clave y repositorios de Microsoft (`mssql-server-2025.list` y `prod.list` de Ubuntu 24.04), `mssql-server` y `mssql-server-ha` 17.0.5065.9-3, `mssql-tools18` y `msodbcsql18` 18.7.1.1-1, `unixodbc-dev`. **No se ejecutó `mssql-conf setup`**, para poder clonar sin que SQL Server guarde el nombre del equipo.
+- **Opción A: clones en Proxmox** (decidido por Max): `qm clone 128 129 --name LNX02 --full 1` y `qm clone 128 130 --name BKP01 --full 1` (con LNX01 encendida).
+- **LNX02 personalizada** (con LNX01 apagada, por SSH a la .28): hostname `lnx02`, `/etc/hosts`, `machine-id` nuevo (`95ec319c…`), claves SSH de host nuevas (`dpkg-reconfigure openssh-server`), IP **.29/22** en netplan. Comprobado tras reiniciar.
+- **BKP01 (130) clonada pero sin personalizar**: dentro tiene todavía hostname `lnx01` e IP .28. **No arrancarla con LNX01 encendida.**
+- Borradas del host las ISO `ubuntu-26.04.1-live-server-amd64.iso` y `WinServ_2022.iso` (se usa Windows Server 2025).
+- Capturas: 30 renombradas con el formato del proyecto (incluidas las recuperadas de la conversación y los historiales `history` de PROC y LNX01 como evidencia de los pasos sin captura).
+
+**Problemas y soluciones (tarde):**
+- Problema: no se hicieron capturas de muchos pasos. → Solución: recuperar las salidas pegadas durante la sesión, rehacer las del estado actual y usar `history` y el *Task History* de Proxmox como evidencia de lo que no se puede repetir.
+- Problema: los clones completos ocupan el disco entero en el thin pool (`Data% 100` en `lvs`). → Propuesta: `discard=on` en los discos y `sudo fstrim -av` dentro de cada VM para devolver el espacio libre **[PENDIENTE DE CONFIRMAR]**.
+- Hallazgo en el `history` de PROC: el equipo ya había importado a mano una OVA de Windows Server 2022 (`tar` + `qemu-img convert` + `qm importdisk`) antes de la VM 107.
+
+**Siguiente (sesión 2, jue 19/11) para Max:** personalizar BKP01 (.30), `mssql-conf setup` (Enterprise Developer en LNX01/LNX02, Express en BKP01), activar Always On (`hadr.hadrenabled`), crear BKP02 y empezar Pacemaker.
+
 
 ### 2026-11-17 (mañana) · Fuera de horario · Max
 

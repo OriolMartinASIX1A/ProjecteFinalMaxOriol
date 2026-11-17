@@ -1,7 +1,7 @@
 # Memoria técnica de la infraestructura desplegada – Fase 1
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 0.3 · 17/11/2026
+**Versión:** 0.4 · 17/11/2026 (sesión 1)
 
 > Documento vivo: se amplía al terminar cada servicio. Lo marcado con **[PENDIENTE DE CONFIRMAR]** hay que verificarlo.
 
@@ -12,10 +12,12 @@
 | VM | Estado | Dónde está | Notas |
 |---|---|---|---|
 | Host Proxmox | Instalado (Proxmox VE 9.2.21, nodo `PROC`) | Servidor físico (192.168.202.3) | Ver [guía del hipervisor](02-guia-instalacion-hipervisor.md) |
-| DC01 | **Completo** (16/11): bosque `cibernova.local`, DNS con reenviador, 23 OU, 27 grupos, 89 empleados, 6 cuentas adm., 6 cuentas especiales y políticas de contraseña. Capturas en la memoria | **VirtualBox** (exportar a OVA e importar en Proxmox el 17/11) | |
+| DC01 | **Completo** (16/11). **No se importó el 17/11 (D-05)**: bosque `cibernova.local`, DNS con reenviador, 23 OU, 27 grupos, 89 empleados, 6 cuentas adm., 6 cuentas especiales y políticas de contraseña. Capturas en la memoria | **VirtualBox** (exportar a OVA e importar en Proxmox el 17/11) | |
 | DC02 | **Sin montar** (no promovido a DC) | — | Ver precauciones del apartado 2.4 antes de crearlo |
-| LNX01 | **Instalada de cero** (17/11): Ubuntu 24.04.5, disco ampliado a 57 GB, actualizada, agente QEMU, zona horaria, cloud-init sin red. Exportada a `LNX01.ova` | **VirtualBox** (importar en Proxmox el 17/11 y poner la IP .28) | WEB01 descartada: no era Ubuntu 24.04 (D-03). Apartado 2.3 |
-| LNX02, BKP01, BKP02 | Ubuntu creados | Proxmox | **[PENDIENTE DE CONFIRMAR]**: versión de Ubuntu (debe ser 24.04), nombres e IPs configurados |
+| LNX01 | **Proxmox (VMID 128)**: Ubuntu 24.04.5, IP .28 fija, DNS públicos, SQL Server 2025 instalado sin configurar | **Proxmox** | Importación manual (el asistente falló). Apartado 2.3 |
+| LNX02 | **Proxmox (VMID 129)**: clon de LNX01 personalizado, IP .29, SQL Server sin configurar | Proxmox | Apartado 2.3.4 |
+| BKP01 | **Proxmox (VMID 130)**: clonada, **sin personalizar** (tiene `lnx01` y .28 dentro) | Proxmox | Personalizar en la sesión 2 |
+| BKP02 | No existe | — | Clon sin SQL Server (sesión 2) |
 | FS01, FS02, clientes | Sin crear | — | — |
 
 ---
@@ -103,17 +105,39 @@ Exportación: *Archivo → Exportar servicio virtualizado* → OVF 2.0 → **Qui
 
 **No actualizar a Ubuntu 26.04** aunque el sistema lo ofrezca al iniciar sesión: SQL Server 2025 necesita 24.04.
 
-#### 2.3.2 En Proxmox, después de importar (propuesto, sesión 1)
+#### 2.3.2 Importación en Proxmox (hecha el 17/11, sesión 1)
 
-1. Importar `LNX01.ova` (apartado 2.2), pero con **disco VirtIO SCSI** y **red VirtIO** en `vmbr0`: Ubuntu trae los drivers, no hace falta SATA/E1000 como en Windows.
-2. *Options → QEMU Guest Agent → Enabled*. Añadir el disco de datos de SQL Server **[PENDIENTE DE CONFIRMAR tamaño]**.
-3. **Apagar WEB01** antes de arrancar LNX01 (usa la .25, reservada para FS01). No borrarla hasta que LNX01 funcione.
-4. Configurar la IP fija. La tarjeta pasa a llamarse `ens18` (comprobar con `ip -br link`):
+1. Activar la importación: *Datacenter → Storage → local → Edit → Content* → **Import**.
+2. Subir la OVA por la web: *PROC → local → Import → Upload* (1,81 GiB; *Hash algorithm*: **None**). La alternativa es `scp LNX01.ova root@192.168.202.3:/var/lib/vz/import/`.
+3. El asistente (*local → Import → LNX01.ova → Import*) **falló** con `OVF parser terminated unexpectedly trying to parse /var/lib/vz/import/LNX01.ova (500)`. La OVA estaba bien: `tar -tvf` lista `LNX01.ovf`, `LNX01.mf` y `LNX01-disk001.vmdk`. El problema es el lector de OVF de Proxmox con la OVA de VirtualBox.
+4. **Importación manual** (crear la VM y convertir el disco):
 
 ```bash
-ls /etc/netplan/
-sudo nano /etc/netplan/50-cloud-init.yaml    # usar el nombre que salga
+cd /var/lib/vz/import
+mkdir -p lnx01 && tar -xvf LNX01.ova -C lnx01
+qm create 128 --name LNX01 --ostype l26 --cores 2 --cpu host --memory 4096 --scsihw virtio-scsi-single --net0 virtio,bridge=vmbr0 --agent enabled=1
+qm importdisk 128 lnx01/LNX01-disk001.vmdk local-lvm
+qm set 128 --scsi0 local-lvm:vm-128-disk-0,iothread=1 --boot order=scsi0
+qm config 128
 ```
+
+Cada comando en **una sola línea**: al pegar la versión partida con `\` dio `400 too many arguments`.
+
+Resultado (`qm config 128`): `agent: enabled=1`, `boot: order=scsi0`, `cores: 2`, `cpu: host`, `memory: 4096`, `net0: virtio,bridge=vmbr0`, `ostype: l26`, `scsi0: local-lvm:vm-128-disk-0,iothread=1,size=60G`, `scsihw: virtio-scsi-single`. Firmware: SeaBIOS (por defecto, igual que en VirtualBox).
+
+5. Antes de arrancar, comprobar que nadie usa la .28: `ping -c 2 192.168.202.28` (no debe responder).
+6. Al arrancar, la tarjeta se llama `ens18` y queda **DOWN**, porque el netplan aún tiene `enp0s3`. Prueba con una IP temporal (se pierde al reiniciar; cada comando con `sudo`):
+
+```bash
+sudo ip link set ens18 up
+sudo ip addr add 192.168.202.28/22 dev ens18
+sudo ip route add default via 192.168.200.254
+ping -c 3 192.168.200.254     # OK
+```
+
+Resultado: puerta de enlace e **Internet accesibles desde la .28** (17/11).
+
+7. IP fija con netplan, por SSH (`ssh admincibernova@192.168.202.28`), porque en la consola noVNC no se puede pegar. **Hecho el 17/11**: aguanta el reinicio y el *Summary* de Proxmox muestra la IP (agente QEMU). El fichero final usa DNS públicos (apartado 2.3.3):
 
 ```yaml
 network:
@@ -129,20 +153,98 @@ network:
       nameservers:
         # Mientras DC01 y DC02 no esten en Proxmox, usar solo 192.168.200.254.
         # Cuando esten, cambiar a: [192.168.202.23, 192.168.202.24]
-        addresses: [192.168.200.254]
+        addresses: [8.8.8.8, 1.1.1.1]
         search: [cibernova.local]
 ```
 
 ```bash
 sudo chmod 600 /etc/netplan/*.yaml
-sudo netplan try             # deshace el cambio si se pierde la red; ENTER para confirmar
-ip -br addr                  # 192.168.202.28/22
-ip route                     # default via 192.168.200.254
-ping -c 3 192.168.200.254
-systemctl status qemu-guest-agent
+sudo netplan try             # ENTER para confirmar; si se corta, se deshace en 120 s
+ip -br addr ; ip route ; ping -c 3 192.168.200.254
+sudo reboot                  # comprobar que vuelve con la IP fija
 ```
 
-**Capturas:** asistente de importación, hardware de la VM, fichero de netplan, `ip -br addr`, `ip route`, ping y la IP de la VM vista en el resumen de Proxmox (la da el agente QEMU).
+8. Liberar espacio en `local` cuando LNX01 funcione: `rm -r /var/lib/vz/import/lnx01 /var/lib/vz/import/LNX01.ova`.
+
+**Consola con copiar y pegar (propuesta):** añadir un puerto serie (`qm set 128 --serial0 socket`) y, dentro de Ubuntu, `sudo systemctl enable --now serial-getty@ttyS0.service`. Después, *Console → xterm.js*.
+
+**Capturas:** `proxmox_storage-import-activado`, `lnx01_subida-ova`, `lnx01_tar-ova`, `lnx01_importdisk`, `lnx01_qm-config`, `lnx01_ip-temporal-ping`, y cuando esté hecho `lnx01_netplan`, `lnx01_ip-br-addr`, `lnx01_summary-ip-agente`, `lnx01_ssh`.
+
+### 2.3.3 DNS del aula: no responde (17/11)
+
+`curl https://packages.microsoft.com/...` falló con `Could not resolve host`. Diagnóstico:
+
+```bash
+resolvectl status ens18                       # DNS: 192.168.200.254
+ping -c 2 8.8.8.8                             # OK: hay Internet
+resolvectl query packages.microsoft.com       # se queda colgado: el DNS del aula no responde
+sudo resolvectl dns ens18 8.8.8.8 1.1.1.1     # prueba temporal
+resolvectl query packages.microsoft.com       # OK
+```
+
+**Conclusión:** el router del aula da salida a Internet al rango .23–.33, pero **no contesta a las consultas DNS**. Es la misma causa del FAIL del reenviador en el `dcdiag` de DC01. **Solución:** `nameservers: addresses: [8.8.8.8, 1.1.1.1]` en netplan (sin 192.168.200.254: si se deja el primero, cada consulta espera varios segundos). Cuando DC01/DC02 estén en Proxmox, los Linux pasan a .23/.24 y los DC reenvían a 8.8.8.8/1.1.1.1 **[PENDIENTE DE CONFIRMAR]**.
+
+### 2.3.4 SQL Server 2025 en LNX01 y clones LNX02/BKP01 (17/11, opción A)
+
+**Paquetes** (guía oficial de Microsoft para Ubuntu 24.04; cada comando en una línea):
+
+```bash
+curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+curl -fsSL https://packages.microsoft.com/config/ubuntu/24.04/mssql-server-2025.list | sudo tee /etc/apt/sources.list.d/mssql-server-2025.list
+curl -fsSL https://packages.microsoft.com/config/ubuntu/24.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+sudo apt-get update
+sudo apt-get install -y mssql-server mssql-server-ha
+sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
+echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> ~/.bashrc && source ~/.bashrc
+dpkg -l | grep -E "mssql|msodbc"
+```
+
+Instalado: `mssql-server` y `mssql-server-ha` **17.0.5065.9-3**, `mssql-tools18` y `msodbcsql18` 18.7.1.1-1. `mssql-server-ha` es el agente que permite a Pacemaker gestionar el AG. **No se ejecutó `mssql-conf setup`**: al configurarlo, SQL Server guarda el nombre del equipo, y los clones se llamarían `lnx01` por dentro.
+
+**Clones (decisión de Max, opción A):**
+
+| Alternativa | Ventaja | Inconveniente | Decisión |
+|---|---|---|---|
+| **A. Clonar LNX01 en Proxmox y personalizar** | Unos 10 min por VM, con Ubuntu actualizado y SQL Server instalado | Hay que regenerar los identificadores | **Elegida** |
+| B. Instalar cada VM en VirtualBox (opción mixta) | Instalaciones independientes | Una tarde por VM y otra OVA que importar | Descartada (tiempo; cierre el 4/12) |
+
+Clonar un Linux es seguro (a diferencia de un DC) si cada clon tiene identificadores propios:
+
+```bash
+# Proxmox
+qm snapshot 128 base-limpia --description "Ubuntu 24.04.5 actualizado, IP .28, antes de SQL Server"
+qm clone 128 129 --name LNX02 --full 1
+qm clone 128 130 --name BKP01 --full 1
+qm shutdown 128 && qm start 129      # el clon arranca con la .28: LNX01 apagada
+```
+
+```bash
+# Dentro del clon (por SSH a la .28; antes, en el portatil: ssh-keygen -R 192.168.202.28)
+sudo hostnamectl set-hostname lnx02
+sudo sed -i 's/lnx01/lnx02/g' /etc/hosts
+sudo rm -f /etc/machine-id /var/lib/dbus/machine-id && sudo systemd-machine-id-setup && sudo ln -sf /etc/machine-id /var/lib/dbus/machine-id
+sudo rm -f /etc/ssh/ssh_host_* && sudo dpkg-reconfigure openssh-server
+sudo sed -i 's#192.168.202.28/22#192.168.202.29/22#' /etc/netplan/50-cloud-init.yaml
+sudo reboot
+# Comprobacion: ssh a la .29 -> hostnamectl, cat /etc/machine-id, ip -br addr, cat /etc/hosts
+```
+
+- **`machine-id`**: identificador único de cada Linux; lo usan systemd, Corosync y SSSD. Repetido causa fallos difíciles de diagnosticar.
+- **Claves SSH de host**: identifican al servidor ante los clientes; repetidas, no se distingue una máquina de otra.
+
+Estado el 17/11: **LNX02 personalizada** (`machine-id` 95ec319c…, IP .29). **BKP01 clonada sin personalizar** (dentro tiene `lnx01` y .28: no arrancarla con LNX01 encendida). Los clones completos ocupan el disco entero en el thin pool (`Data% 100`); propuesta: `discard=on` y `fstrim -av` **[PENDIENTE DE CONFIRMAR]**.
+
+**Capturas:** `lnx01_repos-microsoft`, `lnx01_mssql-instalado`, `proxmox_qm-list-lvs-clones`, `lnx02_personalizado`, `lnx01_history`, `proxmox_history-1/2`.
+
+### 2.3.5 Opción mixta para las VMs Linux (decidida por Max, 17/11)
+
+| Alternativa | Ventaja | Inconveniente | Decisión |
+|---|---|---|---|
+| Todo en Proxmox, en clase | Una sola copia de cada máquina | Gasta las sesiones en instalaciones | Descartada |
+| **Mixta**: paquetes y configuración local en VirtualBox (casa); red, clúster, AG, `fence_pve`, Kea HA y dominio en Proxmox | Las sesiones se dedican a lo que solo se puede hacer allí | Una exportación e importación por máquina | **Elegida** |
+| Todo en VirtualBox, incluido el clúster | Se ensaya todo en casa | Simular la red con las IPs reales, sin `fence_pve`, y repetir parte en Proxmox | Descartada |
+
+Regla: **en cuanto una VM se importa, la de Proxmox es la buena**; la copia de VirtualBox no se vuelve a tocar.
 
 ### 2.4 Precauciones con los controladores de dominio
 
@@ -328,11 +430,15 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 ## 7. Pendiente
 
 - [x] Ejecutar el script 02 v2.2 en DC01 y hacer las capturas (16/11).
-- [ ] Exportar DC01 a OVA, importarlo en Proxmox y comprobar red, DNS (`dcdiag /test:dns`) y rendimiento (17/11).
+- [ ] Exportar DC01 a OVA, importarlo en Proxmox y comprobar red, DNS (`dcdiag /test:dns`) y rendimiento (pasa a la sesión 2, D-05).
 - [ ] Crear DC02 (instalación limpia, no clon de DC01), promoverlo y comprobar la replicación (`repadmin /replsummary`).
 - [x] LNX01 instalada en VirtualBox y exportada a OVA (17/11, apartado 2.3.1).
-- [ ] Importar LNX01 en Proxmox, IP .28 y apagar WEB01 (17/11, apartado 2.3.2).
-- [ ] Comprobar la versión de Ubuntu de LNX02, BKP01 y BKP02 (si no es 24.04, mismo método que LNX01).
+- [x] Importar LNX01 en Proxmox (VMID 128, 17/11). WEB01 y las demás VMs antiguas, borradas.
+- [x] Netplan fijo de LNX01 con DNS públicos (17/11).
+- [x] SQL Server 2025 instalado en LNX01 (sin configurar). LNX02 clonada y personalizada (17/11).
+- [ ] Personalizar BKP01 (.30) y crear BKP02.
+- [ ] `mssql-conf setup` en LNX01, LNX02 (Enterprise Developer) y BKP01 (Express); activar `hadr.hadrenabled`.
+- [ ] **Todo subido a GitHub antes del 4/12/2026** (cierre del repositorio).
 - [x] OU Equipos y Servidores: script 01 v2.1 ejecutado en DC01, 23 OU (16/11).
 - [x] Ejecutar `03-cuentas-especiales.ps1` en DC01: 26 comprobaciones OK (16/11).
 - [ ] Caducidad de `auditor.ext` cuando se sepa el fin de la Fase 3.

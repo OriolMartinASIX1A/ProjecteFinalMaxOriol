@@ -1,7 +1,7 @@
 # Guía de instalación del hipervisor (Proxmox VE)
 
 **Grupo 3:** Max · Oriol
-**Versión:** 0.2 · 16/11/2026 · Basada en la instalación real del equipo
+**Versión:** 0.3 · 17/11/2026 · Basada en la instalación real del equipo y en las comprobaciones de la sesión 1
 
 > Objetivo: que cualquier persona pueda reinstalar el host desde cero con el mismo resultado. Los datos marcados con **[PENDIENTE DE CONFIRMAR]** hay que comprobarlos en el servidor.
 
@@ -113,7 +113,9 @@ Después de la instalación se ejecutó desde la shell de Proxmox el script **PV
 
 ## 9. Rendimiento de las VMs Windows
 
-Las VMs Windows iban muy lentas en Proxmox. No se llegó a medir la causa; estas son las más probables en este hardware y cómo comprobarlas. **[PENDIENTE DE COMPROBAR]** en la primera VM Windows importada.
+Las VMs Windows iban muy lentas en Proxmox. Estas son las causas más probables y cómo comprobarlas.
+
+**Resultado de la sesión 1 (17/11):** `pveperf` da **FSYNCS/SECOND = 2235**, así que la caché de la controladora funciona y el disco del host no es la causa. En cambio, las VMs Windows antiguas tenían el **disco en IDE** (`ide0`), la controladora emulada más lenta, con UEFI y TPM. Es la causa más probable. Pendiente de confirmar con DC01 importado (disco SATA/E1000 al importar; después VirtIO con `virtio-win.iso`).
 
 | Posible causa | Cómo comprobarlo | Solución |
 |---|---|---|
@@ -128,6 +130,19 @@ Las VMs Windows iban muy lentas en Proxmox. No se llegó a medir la causa; estas
 
 ## 10. Pendiente en el host
 
-- [ ] Confirmar máscara (`ip -br addr`), disco (`lsblk`) e interfaces (`ip -br link`).
+- [x] Comprobaciones del host (17/11, sesión 1):
+
+| Comprobación | Resultado |
+|---|---|
+| `lsblk` | Un único `sda` de 1,6 TB → **RAID 10 por hardware**. `pve-root` 96 GB (ext4), `pve-swap` 8 GB, thin pool `pve-data` 1,5 TB |
+| `pvesm status` | `local` (dir, 98 GB, 69 % usado: ISO y OVA) · `local-lvm` (**LVM-thin**, 1,5 TB: discos de las VMs) |
+| `ip -br link` | Solo `nic0` UP; `nic1`–`nic3` sin cable. `vmbr1` sin IP ni puerto (origen **[PENDIENTE DE CONFIRMAR]**) |
+| `ip -br addr` | `vmbr0` = **192.168.202.3/22** |
+| `pveversion` | pve-manager 9.2.21, kernel 7.0.14-25-pve |
+| `pveperf /var/lib/vz` | FSYNCS/SECOND 2235,82 · lecturas 395 MB/s · DNS EXT 396 ms |
+
+- [x] VMs de prueba antiguas (100–107) borradas el 17/11 (`qm destroy <ID> --purge --destroy-unreferenced-disks 1`).
+- [ ] `local` tiene solo ~24 GB libres: borrar cada OVA y su carpeta de `/var/lib/vz/import/` después de importarla.
+- [ ] Opcional: instalar `/etc/pve/pve-root-ca.pem` como CA de confianza en los portátiles para no tener el aviso del certificado autofirmado.
 - [ ] Orden de arranque de las VMs (DC → BKP → FS → LNX → clientes) en *VM → Options → Start/Shutdown order*.
 - [ ] Valorar con el profesorado conectar una segunda NIC para un bond active-backup.
