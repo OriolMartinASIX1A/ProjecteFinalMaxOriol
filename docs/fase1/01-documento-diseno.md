@@ -2,7 +2,7 @@
 
 **Proyecto:** Plan de modernización tecnológica de CiberNova Solutions
 **Equipo:** Grupo 3 – Max (Linux) · Oriol (Windows)
-**Versión:** 0.2 (borrador) · 16/11/2026 · Actualizado con lo ya construido (DC01, OU, grupos y usuarios)
+**Versión:** 0.3 (borrador) · 17/11/2026 · Actualizado con lo ya construido (DC01, OU, grupos y usuarios; LNX01 en VirtualBox)
 
 > Este documento recoge el análisis de necesidades, las decisiones técnicas con sus alternativas y el diseño de la infraestructura de la Fase 1. Es un documento vivo: cada cambio queda registrado en el historial de Git y, si supone un desfase, en la [bitácora](../gestion/bitacora.md).
 
@@ -266,6 +266,7 @@ Recursos del host: 2× Xeon E5-2620 v2 (12 núcleos / 24 hilos), 128 GB RAM, 4×
 
 - RAM: quedan ~76 GB libres para el host y para la Fase 2 (IA) y la Fase 3.
 - vCPU: 24 asignadas sobre 24 hilos; la carga real es baja, así que la sobreasignación no es problema.
+- **LNX01 (17/11):** se instaló con un disco de sistema de **60 GB** en vez de los 40 GB propuestos (57 GB útiles en `/`). Propuesta: dar también 60 GB a LNX02 para que la pareja sea simétrica **[PENDIENTE DE CONFIRMAR]**. Los recursos de la tabla siguen siendo propuestas en revisión.
 - Disco: aprovisionamiento fino (thin). Se vigilará el uso real del *thin pool* para que no supere el 80 %.
 
 ---
@@ -404,7 +405,8 @@ Los servidores solo pueden estar encendidos en horario de proyecto y el centro p
 ## 12. Pendientes
 
 - [ ] Confirmar en el host: `lsblk` (RAID por hardware), `ip -br link` (NIC cableadas; en la instalación se vio una sola UP), `pveversion` y la máscara de `vmbr0` (/22).
-- [x] La VM Ubuntu "WEB01" (192.168.202.25) se adapta a LNX01 (.28) — decidido 16/11. La .25 queda para FS01.
+- [x] ~~La VM Ubuntu "WEB01" (192.168.202.25) se adapta a LNX01 (.28)~~ (16/11). **Anulado el 17/11:** WEB01 no era Ubuntu 24.04; LNX01 se instaló de cero en VirtualBox y se importa como OVA (desfase D-03). La .25 queda para FS01.
+- [ ] Comprobar la versión de Ubuntu de LNX02, BKP01 y BKP02.
 - [ ] Decidir la aplicación web (debe usar SQL Server).
 - [ ] Hablar con el profesorado del DHCP en la red del aula y de una segunda NIC.
 - [ ] Fase 2: la IA necesitará al menos una IP; se reutilizarán .32/.33 o se pedirán más.

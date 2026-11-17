@@ -1,7 +1,7 @@
 # Inventario de servicios, usuarios y grupos – Fase 1
 
 **Grupo 3:** Max · Oriol
-**Versión:** 0.4 (parcial) · 16/11/2026
+**Versión:** 0.5 (parcial) · 17/11/2026
 
 > Entregable obligatorio de la Fase 1 (Anexo I, apartado 12). Esta versión recoge lo que ya está creado en el dominio. Faltan la matriz de permisos P-01 a P-44, los grupos `DL_`, el diagrama de anidamiento y las evidencias de las pruebas.
 
@@ -14,7 +14,7 @@
 | Virtualización | Proxmox VE | 192.168.202.3 | Funcionando |
 | AD DS + DNS | DC01 / DC02 | .23 / .24 | DC01 funcionando en VirtualBox (pendiente de importar) · DC02 sin montar |
 | Ficheros (DFS, FSRM) | FS01 / FS02 | .25 / .26 | Sin crear |
-| Web + SFTP + SQL Server (VIP) | LNX01 / LNX02 | .27 (VIP) · .28 / .29 | VMs Ubuntu creadas en Proxmox; servicios sin instalar. "WEB01" (.25) se adapta a LNX01 (.28) |
+| Web + SFTP + SQL Server (VIP) | LNX01 / LNX02 | .27 (VIP) · .28 / .29 | LNX01: Ubuntu 24.04.5 instalado de cero en VirtualBox (17/11), pendiente de importar en Proxmox. LNX02 creada en Proxmox (versión pendiente de comprobar). Servicios sin instalar |
 | DHCP (Kea) | LNX01 / LNX02 | .28 / .29 | Sin crear |
 | Copias (Bareos) | BKP01 / BKP02 | .30 / .31 | Sin crear |
 

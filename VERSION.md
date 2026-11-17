@@ -4,7 +4,8 @@ Cada paquete que se entrega se llama `CiberNova_G3_Vx.zip`. Este fichero dice qu
 
 | Paquete | Fecha | Cambios |
 |---|---|---|
-| **V7** | 16/11/2026 | Primera subida al repositorio de GitHub (sin zip). DC01 completo: scripts 01 v2.1 y 03 ejecutados (23 OU, 27 grupos, 26 comprobaciones OK); documentos revisados y tareas hechas actualizadas; memoria del proyecto en PDF |
+| **V8** | 17/11/2026 | LNX01 instalada de cero en VirtualBox y exportada a OVA (WEB01 descartada, desfase D-03). Bitácora (D-03 y entrada del 17/11), memoria técnica v0.3 (apartado 2.3 nuevo, riesgo aceptado de contraseñas), diseño v0.3 (disco de LNX01 y pendientes), inventario v0.5 y calendario actualizados |
+| V7 | 16/11/2026 | Primera subida al repositorio de GitHub (sin zip). DC01 completo: scripts 01 v2.1 y 03 ejecutados (23 OU, 27 grupos, 26 comprobaciones OK); documentos revisados y tareas hechas actualizadas; memoria del proyecto en PDF |
 | V6 | 16/11/2026 | Bitácora: estructura y contenido de las carpetas de trabajo de DC01 (`C:\CiberNova` y `C:\CiberNova-Privado`) |
 | V5 | 16/11/2026 | `01-crear-ou-grupos.ps1` v2.1 (OU Equipos y Servidores). Diseño, memoria técnica (primer intento en Proxmox, OU) e inventario v0.4 actualizados; bitácora: decisión de las OU, aclaración del primer intento y exportación de DC01 aplazada al 17/11 |
 | V4 | 16/11/2026 | Nuevo `92-comprobar-cuentas-especiales.ps1` v1.0. Bitácora: diagnóstico del reenviador DNS (el router del aula no da DNS ni Internet a DC01) y decisión de crear las cuentas especiales en la Fase 1. Memoria técnica: estado del DNS de DC01 |

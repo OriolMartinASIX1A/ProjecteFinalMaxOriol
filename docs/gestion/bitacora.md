@@ -62,9 +62,48 @@ Registro continuo de decisiones, problemas, soluciones y desfases. Una entrada p
 | Medidas | Replanificación del calendario: las sesiones liberadas se usan para importar, DC02, servidor de ficheros y permisos, y para dar margen al AG de SQL Server. |
 | Impacto | Unas 2 sesiones de margen en la parte de Windows. Actualización 16/11: los scripts 01 (v2.1), 02 (v2.2) y 03 se ejecutaron con éxito en DC01 tras corregir errores; DC02 todavía sin montar. |
 
+### D-03 · LNX01: instalación limpia en lugar de adaptar WEB01
+
+| Campo | Detalle |
+|---|---|
+| Planificado | Sesión 1 (17/11): adaptar la VM "WEB01" de Proxmox a LNX01 (cambiar nombre e IP a la .28). |
+| Ocurrido | WEB01 no tiene Ubuntu 24.04, que es la versión que necesita SQL Server 2025. LNX01 se instaló de cero en VirtualBox el 17/11 por la mañana (fuera de horario) y se exportó a OVA. |
+| Causa | Imprevisto técnico (versión de Ubuntu no válida en la VM heredada). |
+| Medidas | Instalación limpia de Ubuntu Server 24.04.5 en VirtualBox y exportación a `LNX01.ova` (mismo método que Windows, D-01). En clase: importar, IP fija con netplan y apagar WEB01. Alternativas descartadas: `do-release-upgrade` sobre WEB01 (arrastra restos del proyecto anterior) y reinstalar en Proxmox (solo es posible en horario de clase). |
+| Impacto | Ninguno en el calendario si LNX01 se importa en la sesión 1. LNX02, BKP01 y BKP02 quedan pendientes de comprobar la versión; si no son 24.04, se construyen igual. |
+
 ---
 
 ## Entradas
+
+### 2026-11-17 (mañana) · Fuera de horario · Max
+
+**Hecho:**
+- Comprobado que la VM "WEB01" de Proxmox no es Ubuntu 24.04: se descarta (D-03).
+- LNX01 instalada de cero en VirtualBox: ISO `ubuntu-24.04.5-live-server-amd64.iso`, 2 vCPU, 4 GB de RAM, disco dinámico de 60 GB, BIOS (sin EFI), red NAT. Hostname `lnx01`, usuario `admincibernova`, OpenSSH.
+- `lsb_release -a` → Ubuntu 24.04.5 LTS (noble).
+- Disco: el instalador solo asignó 29 de 58 GB al volumen raíz. Ampliado con `sudo lvextend -r -l 100%VG /dev/ubuntu-vg/ubuntu-lv` → `/` de 57 GB.
+- `apt update` + `apt full-upgrade -y`, `qemu-guest-agent` instalado, zona horaria `Europe/Madrid` (reloj sincronizado).
+- Red de cloud-init desactivada en `/etc/cloud/cloud.cfg.d/99-disable-network-config.cfg` (`network:` / `  config: disabled`).
+- Comprobación tras reiniciar: `hostnamectl`, `timedatectl`, `ip -br link` (tarjeta `enp0s3`, IP NAT 10.0.2.15).
+- Exportada a OVA (OVF 2.0, sin direcciones MAC) en `C:\Users\masen\Documents\LNX01.ova`.
+- 8 capturas en `E:\LNX01` (`2026-11-17_sesion01_lnx01_*.png`). Memoria del proyecto: nuevo apartado 10 (LNX01).
+
+**Problemas y soluciones:**
+- Problema: el instalador de Ubuntu deja la mitad del grupo de volúmenes sin usar. → Solución: `lvextend -r -l 100%VG` (amplía también el ext4 en caliente).
+- Problema: la primera exportación al USB (`E:`) iba muy lenta (leía la VM y escribía la OVA en el mismo USB) y se canceló sin querer. → Solución: exportar a `C:` y copiar después la OVA al USB. Borrar el `E:\LNX01.ova` incompleto si quedó.
+- Problema: un fichero creado con `sudo nano` se guardó en la carpeta personal por no haber hecho `cd` antes. → Solución: `sudo mv` a `/etc/cloud/cloud.cfg.d/`. Lección: usar siempre la ruta completa al editar ficheros del sistema.
+
+**Decisiones:**
+- LNX01 se instala de cero en VirtualBox (D-03).
+- Contraseñas sencillas durante el montaje (riesgo aceptado); se cambian todas al empezar la Fase 3 y se guardan en un gestor (KeePassXC o Proton Pass, pendiente). Propuesta: inventario de dónde se usa cada credencial (sin la contraseña).
+- No actualizar a Ubuntu 26.04 aunque el sistema lo ofrezca: SQL Server 2025 necesita 24.04.
+
+**Desfase:** Sí (ver D-03).
+
+**Siguiente sesión (17/11, 15:00):**
+- Copiar `LNX01.ova` al USB, importarla en Proxmox (disco VirtIO SCSI, red VirtIO, QEMU Guest Agent activado, disco de datos), apagar WEB01, configurar netplan con 192.168.202.28/22 y comprobar red. Capturas.
+- Comprobar la versión de Ubuntu de LNX02, BKP01 y BKP02.
 
 ### 2026-11-16 (noche, 10) · Max y Oriol
 

@@ -1,7 +1,7 @@
 # Calendario – Fase 1
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Elaborado:** 13/11/2026 · **Replanificado:** 16/11/2026 (desfases D-01 y D-02, ver [bitácora](bitacora.md))
+**Elaborado:** 13/11/2026 · **Replanificado:** 17/11/2026 (desfases D-01, D-02 y D-03, ver [bitácora](bitacora.md))
 **Último día de trabajo:** martes 15/12/2026 · **Defensa:** fecha pendiente de comunicar por el profesorado
 
 ## Tiempo disponible
@@ -23,13 +23,13 @@ Los servidores solo pueden estar encendidos en horario de proyecto. Las VMs se c
 | DC01 con el bosque `cibernova.local` (en VirtualBox, sin importar) | — |
 | OU y grupos globales | El script de usuarios v1 dio error: corregido (v2), falta ejecutarlo en DC01 |
 | DC02 sin montar | Crear con instalación limpia (no clon de DC01) |
-| VMs Ubuntu creadas en Proxmox; "WEB01" (.25) pasa a LNX01 (.28) | Versión de Ubuntu de cada VM (debe ser 24.04) |
+| VMs Ubuntu creadas en Proxmox. **17/11:** WEB01 descartada (no era 24.04); LNX01 instalada de cero en VirtualBox y exportada a OVA (D-03) | Versión de Ubuntu de LNX02, BKP01 y BKP02 (debe ser 24.04) |
 
 ## Planificación por sesión (replanificada)
 
 | # | Fecha | Oriol (Windows) | Max (Linux) | Hito |
 |---|---|---|---|---|
-| 1 | Mar 17/11 | Preguntar al profesorado por el DHCP propio y las VLAN (con Max). Comprobaciones del host (con Max). Ejecutar el script 01 v2.1 (OU Equipos y Servidores) si falta. **Exportar DC01 a OVA** (no se pudo el 16/11: servidor apagado) e **importarlo** en Proxmox y comprobar red, DNS, dominio y rendimiento (`pveperf`) | Comprobaciones del host. Adaptar WEB01 → LNX01 (.28). Comprobar versión, nombre e IP de LNX02, BKP01 y BKP02 | **H2** Hipervisor y primeras VMs |
+| 1 | Mar 17/11 | Preguntar al profesorado por el DHCP propio y las VLAN (con Max). Comprobaciones del host (con Max). Ejecutar el script 01 v2.1 (OU Equipos y Servidores) si falta. **Exportar DC01 a OVA** (no se pudo el 16/11: servidor apagado) e **importarlo** en Proxmox y comprobar red, DNS, dominio y rendimiento (`pveperf`) | Comprobaciones del host. **Importar `LNX01.ova`** (VirtIO), apagar WEB01 y poner la IP .28 con netplan. Comprobar versión, nombre e IP de LNX02, BKP01 y BKP02 | **H2** Hipervisor y primeras VMs |
 | 2 | Jue 19/11 | Importar DC02 (instalación limpia hecha en casa), promoverlo y comprobar replicación. Reenviadores DNS. OU Equipos/Servidores (si se aprueban) | Instalar SQL Server 2025 en LNX01/02 y Express en BKP01 | **H3** Servicios core (1/3) |
 | 3 | Mar 24/11 | Importar FS01/FS02. DFS-N + DFS-R, estructura de carpetas, grupos `DL_` | Pacemaker + Corosync (`cibernova-g3`), qdevice en BKP01, fencing `fence_pve` | **H3** (2/3) |
 | 4 | Jue 26/11 | Permisos NTFS (matriz P-01–P-44), ABE, FSRM (cuotas), auditoría de acceso | AG de SQL Server + réplica config-only + recurso en Pacemaker + VIP .27 | **H3** (3/3) |

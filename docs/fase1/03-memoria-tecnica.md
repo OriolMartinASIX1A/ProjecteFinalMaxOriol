@@ -1,20 +1,20 @@
 # Memoria técnica de la infraestructura desplegada – Fase 1
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 0.2 · 16/11/2026
+**Versión:** 0.3 · 17/11/2026
 
 > Documento vivo: se amplía al terminar cada servicio. Lo marcado con **[PENDIENTE DE CONFIRMAR]** hay que verificarlo.
 
 ---
 
-## 1. Estado actual (16/11/2026)
+## 1. Estado actual (17/11/2026)
 
 | VM | Estado | Dónde está | Notas |
 |---|---|---|---|
 | Host Proxmox | Instalado (Proxmox VE 9.2.21, nodo `PROC`) | Servidor físico (192.168.202.3) | Ver [guía del hipervisor](02-guia-instalacion-hipervisor.md) |
 | DC01 | **Completo** (16/11): bosque `cibernova.local`, DNS con reenviador, 23 OU, 27 grupos, 89 empleados, 6 cuentas adm., 6 cuentas especiales y políticas de contraseña. Capturas en la memoria | **VirtualBox** (exportar a OVA e importar en Proxmox el 17/11) | |
 | DC02 | **Sin montar** (no promovido a DC) | — | Ver precauciones del apartado 2.4 antes de crearlo |
-| LNX01 (antes "WEB01") | Ubuntu creado en Proxmox | Proxmox | Máquina de un inicio de proyecto anterior: se adapta a LNX01 (.28). Procedimiento en el apartado 2.3 |
+| LNX01 | **Instalada de cero** (17/11): Ubuntu 24.04.5, disco ampliado a 57 GB, actualizada, agente QEMU, zona horaria, cloud-init sin red. Exportada a `LNX01.ova` | **VirtualBox** (importar en Proxmox el 17/11 y poner la IP .28) | WEB01 descartada: no era Ubuntu 24.04 (D-03). Apartado 2.3 |
 | LNX02, BKP01, BKP02 | Ubuntu creados | Proxmox | **[PENDIENTE DE CONFIRMAR]**: versión de Ubuntu (debe ser 24.04), nombres e IPs configurados |
 | FS01, FS02, clientes | Sin crear | — | — |
 
@@ -56,32 +56,64 @@ En ese primer intento en Proxmox se llegó a promover un DC01 y DC01 y DC02 se v
 
 **Capturas:** exportación en VirtualBox, asistente de importación en Proxmox, `ipconfig /all` tras importar, ping.
 
-### 2.3 Adaptación de "WEB01" a LNX01
+### 2.3 LNX01: instalación limpia en VirtualBox (17/11/2026)
 
-WEB01 es una VM Ubuntu de un inicio de proyecto anterior. Se reutiliza como **LNX01** (192.168.202.28), lo que deja libre la .25 para FS01.
+La VM "WEB01" de Proxmox (de un inicio de proyecto anterior) **no tenía Ubuntu 24.04**, que es la versión que necesita SQL Server 2025. Se descartó adaptarla y LNX01 se instaló de cero en VirtualBox, con el mismo método que Windows (desfase D-03 en la bitácora).
 
-En la consola de la VM (usuario `admincibernova`):
+| Alternativa | Decisión | Motivo |
+|---|---|---|
+| Actualizar WEB01 con `do-release-upgrade` | Descartada | Arrastra restos del proyecto anterior y es más difícil de justificar |
+| Reinstalar directamente en Proxmox | Descartada | Con las máquinas de Proxmox solo se puede trabajar en horario de clase |
+| **Instalar en VirtualBox en casa → OVA → Proxmox** | **Elegida** | Aprovecha el tiempo fuera de horario y es el mismo método que Windows (D-01) |
+
+#### 2.3.1 Hecho en VirtualBox
+
+| Parámetro | Valor |
+|---|---|
+| ISO | `ubuntu-24.04.5-live-server-amd64.iso` |
+| Recursos en VirtualBox | 2 vCPU, 4 GB de RAM, disco dinámico de 60 GB, BIOS (sin EFI), red NAT |
+| Instalación | Ubuntu Server, disco entero con LVM, hostname `lnx01`, usuario `admincibernova`, OpenSSH, sin snaps |
+
+Comandos ejecutados después de instalar:
 
 ```bash
-# 1. Comprobar la versión: SQL Server 2025 necesita Ubuntu 24.04
-lsb_release -a
+lsb_release -a                       # Ubuntu 24.04.5 LTS (noble)
 
-# 2. Cambiar el nombre del equipo
-sudo hostnamectl set-hostname lnx01
-sudo sed -i 's/\bweb01\b/lnx01/Ig' /etc/hosts
-cat /etc/hosts              # comprobar que no queda "web01"
+# El instalador solo asigna al volumen raíz la mitad del grupo de volúmenes (29 de 58 GB)
+df -h / ; sudo vgs ; lsblk
+sudo lvextend -r -l 100%VG /dev/ubuntu-vg/ubuntu-lv   # -r amplía también el ext4, en caliente
+df -h /                              # 57 GB
 
-# 3. Ver el nombre de la tarjeta de red (en Proxmox suele ser ens18)
-ip -br link
+sudo apt update && sudo apt full-upgrade -y
+sudo apt install -y qemu-guest-agent # en VirtualBox no arranca (normal); en Proxmox sí
+sudo timedatectl set-timezone Europe/Madrid
 
-# 4. Evitar que cloud-init sobrescriba la red
-echo 'network: {config: disabled}' | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+# Que cloud-init no reescriba la red al cambiar la tarjeta en Proxmox
+sudo nano /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+#   network:
+#     config: disabled
 
-# 5. Ver el fichero de netplan existente
-ls /etc/netplan/
+sudo reboot
+hostnamectl ; timedatectl ; ip -br link ; ip -br addr   # lnx01, Europe/Madrid, enp0s3
 ```
 
-Editar el fichero de netplan (por ejemplo `sudo nano /etc/netplan/50-cloud-init.yaml`; usad el nombre que salga) con este contenido, cambiando `ens18` por el nombre real de la tarjeta:
+Exportación: *Archivo → Exportar servicio virtualizado* → OVF 2.0 → **Quitar todas las direcciones MAC** → `LNX01.ova`. Exportar a un disco distinto del que contiene la VM: leer y escribir en el mismo USB lo hace muy lento.
+
+**Capturas** (en `E:\LNX01`): `lsb-release`, `disco-antes`, `disco-ampliado`, `apt-upgrade`, `qemu-agent-zona-horaria`, `cloud-init-red-desactivada`, `cloud-init-fichero`, `hostname-hora-red` (prefijo `2026-11-17_sesion01_lnx01_`).
+
+**No actualizar a Ubuntu 26.04** aunque el sistema lo ofrezca al iniciar sesión: SQL Server 2025 necesita 24.04.
+
+#### 2.3.2 En Proxmox, después de importar (propuesto, sesión 1)
+
+1. Importar `LNX01.ova` (apartado 2.2), pero con **disco VirtIO SCSI** y **red VirtIO** en `vmbr0`: Ubuntu trae los drivers, no hace falta SATA/E1000 como en Windows.
+2. *Options → QEMU Guest Agent → Enabled*. Añadir el disco de datos de SQL Server **[PENDIENTE DE CONFIRMAR tamaño]**.
+3. **Apagar WEB01** antes de arrancar LNX01 (usa la .25, reservada para FS01). No borrarla hasta que LNX01 funcione.
+4. Configurar la IP fija. La tarjeta pasa a llamarse `ens18` (comprobar con `ip -br link`):
+
+```bash
+ls /etc/netplan/
+sudo nano /etc/netplan/50-cloud-init.yaml    # usar el nombre que salga
+```
 
 ```yaml
 network:
@@ -102,24 +134,15 @@ network:
 ```
 
 ```bash
-# 6. Aplicar (netplan try deshace el cambio si perdéis la conexión)
 sudo chmod 600 /etc/netplan/*.yaml
-sudo netplan try
-# Pulsar ENTER para confirmar
-
-# 7. Comprobar
+sudo netplan try             # deshace el cambio si se pierde la red; ENTER para confirmar
 ip -br addr                  # 192.168.202.28/22
 ip route                     # default via 192.168.200.254
 ping -c 3 192.168.200.254
-ping -c 3 archive.ubuntu.com
-hostnamectl
+systemctl status qemu-guest-agent
 ```
 
-8. En Proxmox, cambiar el nombre de la VM: *VM → Options → Name → `LNX01`*.
-
-**Capturas:** `lsb_release -a`, el fichero de netplan, `ip -br addr`, `hostnamectl` y el ping.
-
-**[PENDIENTE DE CONFIRMAR]:** si `lsb_release` no muestra 24.04, es mejor reinstalar LNX01 con 24.04 que actualizarla.
+**Capturas:** asistente de importación, hardware de la VM, fichero de netplan, `ip -br addr`, `ip route`, ping y la IP de la VM vista en el resumen de Proxmox (la da el agente QEMU).
 
 ### 2.4 Precauciones con los controladores de dominio
 
@@ -129,7 +152,9 @@ hostnamectl
 
 ### 2.5 Trabajo en casa con las VMs Ubuntu (propuesta pendiente de decidir)
 
-Las Ubuntu ya están en Proxmox. Para trabajar en casa con el servidor apagado se plantea crear copias en VirtualBox. **Propuesta:** en lugar de volver a importar máquinas enteras, **pasar la configuración, no la máquina**:
+> **Actualización 17/11:** para construir LNX01 desde cero, Max eligió VirtualBox → OVA (apartado 2.3). La propuesta de abajo sigue pendiente para los servicios que se monten **después** de importar (SQL Server, Pacemaker, Apache…), cuando las VMs ya estén en Proxmox.
+
+LNX02, BKP01 y BKP02 ya están en Proxmox. Para trabajar en casa con el servidor apagado se plantea crear copias en VirtualBox. **Propuesta:** en lugar de volver a importar máquinas enteras, **pasar la configuración, no la máquina**:
 
 1. En VirtualBox, una VM Ubuntu 24.04 de pruebas por servicio.
 2. Cada configuración se guarda en el repositorio (`configs/linux/`) y cada instalación en un script (`scripts/linux/`).
@@ -296,6 +321,8 @@ Get-ADUser -Filter * -SearchBase "OU=Cuentas especiales,OU=CiberNova,DC=cibernov
 
 Las contraseñas no se escriben en la documentación, Drive ni Git (requisito del Anexo I y de la auditoría de la Fase 3).
 
+**Riesgo aceptado (17/11/2026):** durante el montaje (Fases 1 y 2) se usan contraseñas sencillas para poder recordarlas. Al empezar la Fase 3 se cambian todas y se guardan en un gestor de contraseñas (KeePassXC o Proton Pass, **[PENDIENTE DE CONFIRMAR]**). La red del aula es compartida con otros grupos, así que no se reutiliza la misma contraseña en todas las máquinas. Propuesta: mantener desde ya un inventario de **dónde** se usa cada credencial (nunca la contraseña): `admincibernova` en cada Ubuntu, `hacluster` (Pacemaker), usuario de `fence_pve` en Proxmox, `sa` y login del AG en SQL Server, `svc_backup` (Bareos).
+
 ---
 
 ## 7. Pendiente
@@ -303,7 +330,9 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 - [x] Ejecutar el script 02 v2.2 en DC01 y hacer las capturas (16/11).
 - [ ] Exportar DC01 a OVA, importarlo en Proxmox y comprobar red, DNS (`dcdiag /test:dns`) y rendimiento (17/11).
 - [ ] Crear DC02 (instalación limpia, no clon de DC01), promoverlo y comprobar la replicación (`repadmin /replsummary`).
-- [ ] Adaptar WEB01 a LNX01 (apartado 2.3) y comprobar la configuración de LNX02, BKP01 y BKP02.
+- [x] LNX01 instalada en VirtualBox y exportada a OVA (17/11, apartado 2.3.1).
+- [ ] Importar LNX01 en Proxmox, IP .28 y apagar WEB01 (17/11, apartado 2.3.2).
+- [ ] Comprobar la versión de Ubuntu de LNX02, BKP01 y BKP02 (si no es 24.04, mismo método que LNX01).
 - [x] OU Equipos y Servidores: script 01 v2.1 ejecutado en DC01, 23 OU (16/11).
 - [x] Ejecutar `03-cuentas-especiales.ps1` en DC01: 26 comprobaciones OK (16/11).
 - [ ] Caducidad de `auditor.ext` cuando se sepa el fin de la Fase 3.
