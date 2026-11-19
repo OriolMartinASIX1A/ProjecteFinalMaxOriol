@@ -96,6 +96,37 @@ Registro continuo de decisiones, problemas, soluciones y desfases. Una entrada p
 
 ## Entradas
 
+### 2026-11-19 · Sesión 2 (Linux: SQL Server y BKP02) · Max
+
+**Hecho:**
+- **`mssql-conf setup` en las tres máquinas con SQL Server**, ya con su nombre definitivo: **Enterprise Developer** (opción 2) en LNX01 y LNX02 y **Express** (opción 4) en BKP01. La contraseña de `sa` la escribió Max y no se guarda en ningún documento.
+- **Always On activado** en las tres (`mssql-conf set hadr.hadrenabled 1`) y **Agente de SQL Server** en LNX01 y LNX02 (`sqlagent.enabled true`; Express no lo incluye). Reinicio de `mssql-server`.
+- Comprobación en cada una con `sqlcmd ... -W -Q "SELECT @@SERVERNAME, SERVERPROPERTY('Edition'), SERVERPROPERTY('IsHadrEnabled')"`: `lnx01`/`lnx02` → Enterprise Developer Edition (64-bit), `alwayson = 1`; `bkp01` → Express Edition (64-bit), `alwayson = 1`. Cada servidor devuelve su propio nombre: configurar después de clonar fue correcto. Memoria en uso: unos 214 MB en LNX01/LNX02 y unos 128 MB en BKP01.
+- **BKP02 creada (VMID 131, .31)** clonando la **instantánea `base-limpia`** de LNX01 (`qm clone 128 131 --name BKP02 --full 1 --snapname base-limpia`), es decir, Ubuntu actualizado **sin SQL Server**. Personalizada igual que los otros clones (hostname `bkp02`, `/etc/hosts`, `machine-id`, claves SSH, IP .31) con LNX01 apagada. Comprobado que no tiene paquetes ni servicio de SQL Server.
+- **Las cuatro Linux actualizadas** (`apt full-upgrade` + reinicio) para tener el mismo kernel que BKP02 (6.8.0-151). Tras el reinicio, `mssql-server` arranca solo (`active`) en LNX01, LNX02 y BKP01.
+- 16 capturas (`2026-11-19_sesion02_*`, en `capturas-sesion02.zip`) y apartado 13 de la memoria del proyecto (Google Doc), con la marca de dónde va cada captura. Apartado 7 de la memoria con todas las máquinas creadas.
+
+**Problemas y soluciones:**
+- Problema: `sqlcmd: command not found`. → Causa: el 17/11 se instalaron las herramientas pero no se añadió `/opt/mssql-tools18/bin` al PATH. Solución: `echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> ~/.bashrc && source ~/.bashrc` en las tres.
+- Problema: la salida de `sqlcmd` salía muy dispersa (columnas de cientos de caracteres). → Solución: opción `-W` (quita los espacios sobrantes).
+- Problema: `apt full-upgrade` tardaba mucho en BKP02. → Se comprobaron los DNS del netplan (8.8.8.8 y 1.1.1.1, correctos). La espera venía de las actualizaciones acumuladas desde la instantánea del 17/11, incluido un kernel nuevo.
+
+**Decisiones:**
+- **BKP02 desde la instantánea `base-limpia`** (Max). Alternativas: (a) clonar LNX01 tal como está y desinstalar SQL Server (`apt purge`) → descartada: deja restos (`/var/opt/mssql`, repositorios, usuario `mssql`) y más pasos; (b) instalación limpia en VirtualBox → descartada por tiempo; (c) **clon de la instantánea anterior a SQL Server** → elegida: el servidor solo tiene lo que necesita (menos superficie de ataque) y sin pasos extra.
+- **Mismo kernel en las cuatro Linux** (Max): los nodos de un clúster deben tener el mismo software para que se comporten igual en la conmutación.
+
+**Desfase:** No. Lo previsto para Max en la sesión 2 (BKP01, `mssql-conf setup`, BKP02) está hecho. Queda para la sesión 3, como estaba planificado: Pacemaker + Corosync, qdevice y `fence_pve`. Sigue pendiente `serial-getty@ttyS0` en LNX01 (no imprescindible: se trabaja por SSH).
+
+**Siguiente sesión (24/11):** clúster `cibernova-g3` (Pacemaker + Corosync) en LNX01 y LNX02, qdevice en BKP01, `fence_pve` contra la API de Proxmox (usuario propio con permisos mínimos). Preparar en casa los comandos y ficheros.
+
+### 2026-11-18 · Fuera de horario (BKP01 personalizada) · Max
+
+**Hecho:**
+- **BKP01 (VMID 130) personalizada**, con LNX01 apagada para que no chocara la .28: hostname `bkp01`, `/etc/hosts`, `machine-id` y claves SSH regenerados, IP **192.168.202.30** en el netplan. Comprobado con `hostnamectl`, `cat /etc/machine-id`, `ip -br addr` (captura `2026-11-18_sesion01_bkp01_personalizado.png`).
+- Memoria del proyecto (Google Doc): apartados 10 (LNX01 en VirtualBox), 11 (sesión 1) y 12 (SQL Server y clones) con las marcas de las capturas.
+
+**Desfase:** No (adelanto de una tarea de la sesión 2).
+
 ### 2026-11-19 · Sesión 2 y tarde (DC02 en VirtualBox) · Max y Oriol
 
 **Hecho (DC02, en VirtualBox, mismo equipo que DC01, adaptador puente):**

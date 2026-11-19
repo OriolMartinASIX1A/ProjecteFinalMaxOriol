@@ -1,23 +1,23 @@
 # Memoria técnica de la infraestructura desplegada – Fase 1
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
+**Versión:** 0.9 · 19/11/2026 (sesión 2 Linux: SQL Server configurado, BKP01 y BKP02, apartado 2.3.6) · v0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
 
 > Documento vivo: se amplía al terminar cada servicio. Lo marcado con **[PENDIENTE DE CONFIRMAR]** hay que verificarlo.
 
 ---
 
-## 1. Estado actual (17/11/2026)
+## 1. Estado actual (19/11/2026)
 
 | VM | Estado | Dónde está | Notas |
 |---|---|---|---|
 | Host Proxmox | Instalado (Proxmox VE 9.2.21, nodo `PROC`) | Servidor físico (192.168.202.3) | Ver [guía del hipervisor](02-guia-instalacion-hipervisor.md) |
 | DC01 | **AD completo** (16/11): bosque `cibernova.local`, 23 OU, 27 grupos, 89 empleados, 6 cuentas adm., 6 cuentas especiales y políticas de contraseña. **DNS configurado y verificado** (18/11, apartado 3.3) y **GPO de seguridad** (18/11, apartado 3.4). Hora con `hora.roa.es`. **No se importó el 17/11 (D-05).** Faltan los grupos `DL_` y la unión del resto de máquinas | **VirtualBox** (exportar a OVA e importar en Proxmox en la sesión 2) | |
 | DC02 | **Promovido el 19/11 en VirtualBox** (DNS + catálogo global), replicando con DC01 | Pendiente de exportar a OVA e importar en Proxmox (VMID 124) junto con DC01 | Ver precauciones del apartado 2.4 y [guía 07](07-guia-dominio-dc02-union.md), apartado 2 |
-| LNX01 | **Proxmox (VMID 128)**: Ubuntu 24.04.5, IP .28 fija, DNS públicos, SQL Server 2025 instalado sin configurar | **Proxmox** | Importación manual (el asistente falló). Apartado 2.3 |
-| LNX02 | **Proxmox (VMID 129)**: clon de LNX01 personalizado, IP .29, SQL Server sin configurar | Proxmox | Apartado 2.3.4 |
-| BKP01 | **Proxmox (VMID 130)**: clonada, **sin personalizar** (tiene `lnx01` y .28 dentro) | Proxmox | Personalizar en la sesión 2 |
-| BKP02 | No existe | — | Clon sin SQL Server (sesión 2) |
+| LNX01 | **Proxmox (VMID 128)**: Ubuntu 24.04.5, IP .28 fija, DNS públicos, **SQL Server 2025 Enterprise Developer** con Always On y Agente | **Proxmox** | Importación manual (el asistente falló). Apartados 2.3 y 2.3.6 |
+| LNX02 | **Proxmox (VMID 129)**: clon de LNX01 personalizado, IP .29, **SQL Server 2025 Enterprise Developer** con Always On y Agente | Proxmox | Apartados 2.3.4 y 2.3.6 |
+| BKP01 | **Proxmox (VMID 130)**: clon personalizado (18/11), IP .30, **SQL Server 2025 Express** con Always On (futura réplica de solo configuración) | Proxmox | Apartados 2.3.4 y 2.3.6 |
+| BKP02 | **Proxmox (VMID 131)**: clon de la instantánea `base-limpia` (sin SQL Server), personalizado, IP .31 | Proxmox | Apartado 2.3.6. Bareos pendiente |
 | FS01, FS02, clientes | Sin crear | — | — |
 
 > **Lista de todo lo pendiente** (requisitos del enunciado y del Anexo I, con su estado): [`docs/gestion/lista-tareas-fase1.md`](../gestion/lista-tareas-fase1.md).
@@ -234,7 +234,7 @@ sudo reboot
 - **`machine-id`**: identificador único de cada Linux; lo usan systemd, Corosync y SSSD. Repetido causa fallos difíciles de diagnosticar.
 - **Claves SSH de host**: identifican al servidor ante los clientes; repetidas, no se distingue una máquina de otra.
 
-Estado el 17/11: **LNX02 personalizada** (`machine-id` 95ec319c…, IP .29). **BKP01 clonada sin personalizar** (dentro tiene `lnx01` y .28: no arrancarla con LNX01 encendida). Los clones completos ocupan el disco entero en el thin pool (`Data% 100`); propuesta: `discard=on` y `fstrim -av` **[PENDIENTE DE CONFIRMAR]**.
+Estado el 17/11: **LNX02 personalizada** (`machine-id` 95ec319c…, IP .29). BKP01 clonada; **personalizada el 18/11** con el mismo procedimiento (`bkp01`, IP .30). Los clones completos ocupan el disco entero en el thin pool (`Data% 100`); propuesta: `discard=on` y `fstrim -av` **[PENDIENTE DE CONFIRMAR]**.
 
 **Capturas:** `lnx01_repos-microsoft`, `lnx01_mssql-instalado`, `proxmox_qm-list-lvs-clones`, `lnx02_personalizado`, `lnx01_history`, `proxmox_history-1/2`.
 
@@ -247,6 +247,52 @@ Estado el 17/11: **LNX02 personalizada** (`machine-id` 95ec319c…, IP .29). **B
 | Todo en VirtualBox, incluido el clúster | Se ensaya todo en casa | Simular la red con las IPs reales, sin `fence_pve`, y repetir parte en Proxmox | Descartada |
 
 Regla: **en cuanto una VM se importa, la de Proxmox es la buena**; la copia de VirtualBox no se vuelve a tocar.
+
+### 2.3.6 Sesión 2 (19/11): configuración de SQL Server y BKP02
+
+**Configuración inicial de SQL Server** (en cada máquina, ya con su nombre definitivo; la contraseña de `sa` no se guarda en ningún documento):
+
+```bash
+sudo /opt/mssql/bin/mssql-conf setup
+sudo /opt/mssql/bin/mssql-conf set hadr.hadrenabled 1
+sudo /opt/mssql/bin/mssql-conf set sqlagent.enabled true
+sudo systemctl restart mssql-server
+```
+
+| Máquina | Edición (opción) | Always On | Agente | Motivo |
+|---|---|---|---|---|
+| LNX01, LNX02 | **Enterprise Developer** (2) | Sí | Sí | Gratuita con todas las funciones de Enterprise, incluido el AG con conmutación automática. Licencia solo para desarrollo y pruebas (laboratorio); en producción, Enterprise |
+| BKP01 | **Express** (4) | Sí | No (Express no lo incluye) | Solo será réplica de solo configuración: no guarda datos, aporta el tercer voto. Edición gratuita y ligera (unos 128 MB de memoria frente a 214 MB) |
+
+Comprobación (necesita el PATH de las herramientas, que faltaba desde el 17/11):
+
+```bash
+echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> ~/.bashrc && source ~/.bashrc
+systemctl status mssql-server --no-pager
+sqlcmd -S localhost -U sa -C -W -Q "SELECT @@SERVERNAME AS servidor, SERVERPROPERTY('Edition') AS edicion, SERVERPROPERTY('IsHadrEnabled') AS alwayson"
+```
+
+Resultado: cada servidor devuelve su propio nombre (`lnx01`, `lnx02`, `bkp01`), la edición prevista y `alwayson = 1`. `-W` quita los espacios de relleno de las columnas.
+
+**BKP02 desde la instantánea `base-limpia`:**
+
+| Alternativa | Ventaja | Inconveniente | Decisión |
+|---|---|---|---|
+| Clonar LNX01 actual y desinstalar SQL Server | Parte de la máquina más reciente | Deja restos (`/var/opt/mssql`, repositorios, usuario `mssql`) y más pasos | Descartada |
+| **Clonar la instantánea `base-limpia`** (anterior a SQL Server) | Solo el software necesario (menos superficie de ataque), sin pasos extra | Hay que actualizar lo acumulado desde el 17/11 | **Elegida** |
+| Instalación limpia en VirtualBox | Independiente de LNX01 | Una tarde y otra OVA | Descartada (tiempo) |
+
+```bash
+# Proxmox (LNX01 apagada: el clon arranca con la .28)
+qm clone 128 131 --name BKP02 --full 1 --snapname base-limpia
+qm start 131
+# Dentro: mismo procedimiento del apartado 2.3.4 con bkp02 y 192.168.202.31
+# Comprobacion: dpkg -l | grep -i mssql (vacío) y systemctl status mssql-server (no existe)
+```
+
+**Actualización:** BKP02 quedó con un kernel más nuevo (6.8.0-151). Se actualizaron las otras tres (`sudo apt update && sudo apt full-upgrade -y && sudo reboot`) para que los cuatro nodos tengan el mismo software, y se comprobó que `mssql-server` arranca solo tras el reinicio.
+
+**Capturas** (prefijo `2026-11-19_sesion02_`): `lnx01_mssql-ediciones`; `lnx01/lnx02/bkp01_mssql-status` y `_mssql-comprobacion`; `proxmox_snapshot-base-limpia`, `proxmox_clon-bkp02`, `proxmox_qm-list-bkp02`; `bkp02_personalizado`, `bkp02_sin-sqlserver`; `bkp02_kernel` y `lnx01/lnx02/bkp01_kernel-mssql`. Captura de BKP01 del 18/11: `2026-11-18_sesion01_bkp01_personalizado`.
 
 ### 2.4 Precauciones con los controladores de dominio
 
@@ -489,8 +535,9 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 - [x] Importar LNX01 en Proxmox (VMID 128, 17/11). WEB01 y las demás VMs antiguas, borradas.
 - [x] Netplan fijo de LNX01 con DNS públicos (17/11).
 - [x] SQL Server 2025 instalado en LNX01 (sin configurar). LNX02 clonada y personalizada (17/11).
-- [ ] Personalizar BKP01 (.30) y crear BKP02.
-- [ ] `mssql-conf setup` en LNX01, LNX02 (Enterprise Developer) y BKP01 (Express); activar `hadr.hadrenabled`.
+- [x] Personalizar BKP01 (.30, 18/11) y crear BKP02 (131, .31, 19/11, desde `base-limpia`).
+- [x] `mssql-conf setup` en LNX01, LNX02 (Enterprise Developer) y BKP01 (Express); `hadr.hadrenabled` activado en las tres y Agente en LNX01/LNX02 (19/11).
+- [ ] Pacemaker + Corosync (`cibernova-g3`), qdevice en BKP01 y `fence_pve` (sesión 3).
 - [ ] **Todo subido a GitHub antes del 4/12/2026** (cierre del repositorio).
 - [x] OU Equipos y Servidores: script 01 v2.1 ejecutado en DC01, 23 OU (16/11).
 - [x] Ejecutar `03-cuentas-especiales.ps1` en DC01: 26 comprobaciones OK (16/11).

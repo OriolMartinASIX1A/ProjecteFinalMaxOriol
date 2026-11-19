@@ -1,7 +1,7 @@
 # Lista de tareas de la Fase 1 (control de requisitos)
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 1.4 · 19/11/2026 (DC02 promovido y comprobado en VirtualBox; reenviadores de DC02) · v1.3 · 19/11/2026 (reenviadores corregidos, revisión general de documentos, DC02 en VirtualBox)
+**Versión:** 1.5 · 19/11/2026 (sesión 2 Linux: SQL Server configurado en LNX01, LNX02 y BKP01; BKP02 creada) · v1.4 · 19/11/2026 (DC02 promovido y comprobado en VirtualBox; reenviadores de DC02) · v1.3 · 19/11/2026 (reenviadores corregidos, revisión general de documentos, DC02 en VirtualBox)
 
 > **Para qué sirve:** es la lista de todo lo que pide la práctica y en qué punto está. **Regla:** solo se marca ✅ lo que Max u Oriol han confirmado que está hecho (con su captura o comprobación). Todo lo demás está pendiente. Antes de dar por terminado un servicio o una máquina, se revisa esta lista.
 >
@@ -23,7 +23,7 @@
 | DHCP | ⏳ ❓ permiso del profesorado | ⏳ Kea HA | ⏳ |
 | Servidor web | ⏳ ❓ aplicación sin decidir | ⏳ Pacemaker + VIP | ⏳ |
 | FTP/SFTP | ⏳ | ⏳ Pacemaker + VIP | ⏳ |
-| Base de datos | ⏳ SQL Server 2025 instalado en LNX01 (y clones), sin configurar | ⏳ AG + Pacemaker | ⏳ |
+| Base de datos | ✅ SQL Server 2025 configurado (19/11): Enterprise Developer en LNX01/LNX02, Express en BKP01, Always On activado | ⏳ AG + Pacemaker | ⏳ |
 | Ficheros con DFS | ⏳ | ⏳ DFS-N + DFS-R | ⏳ |
 | Usuarios y grupos con permisos y accesos | ✅ usuarios y grupos globales · ⏳ grupos `DL_`, permisos, carpetas, GPO | — | 15 pruebas del Anexo I ⏳ |
 | Backups | ⏳ | ⏳ BKP01 + BKP02 | Restauración ⏳ |
@@ -135,7 +135,7 @@
 | LNX-01 | LNX01 instalada de cero en VirtualBox y exportada a OVA | ✅ | 17/11, D-03 |
 | LNX-02 | Importar LNX01 en Proxmox (VirtIO), IP .28 en `ens18` | ✅ | 17/11, VMID 128, importación manual (el asistente falló); netplan fijo e instantánea `base-limpia` |
 | LNX-03 | WEB01 (usaba la .25 de FS01) | ✅ | Borrada el 17/11 con las demás VMs antiguas (100–107) |
-| LNX-04 | LNX02, BKP01 y BKP02 con Ubuntu 24.04 | ⏳ | 17/11: LNX02 (129, .29) y BKP01 (130) clonadas de LNX01 (opción A); LNX02 personalizada, **BKP01 sin personalizar** (no arrancar con LNX01); BKP02 sin crear |
+| LNX-04 | LNX02, BKP01 y BKP02 con Ubuntu 24.04 | ✅ | LNX02 (129, .29) y BKP01 (130, .30) clonadas de LNX01 el 17/11 (opción A) y personalizadas (BKP01 el 18/11). BKP02 (131, .31) clonada el 19/11 de la instantánea `base-limpia` (sin SQL Server) y personalizada. Las cuatro con el mismo kernel (6.8.0-151). 📸 `*_personalizado`, `*_kernel*` |
 | LNX-05 | IP fija, DNS .23/.24, hora con los DC en las cuatro | ⏳ | Guía 07, apartado 3.3 |
 | LNX-06 | Firewall (ufw/nftables) solo con los puertos necesarios | ⏳ | Compensación de la red plana |
 | LNX-07 | Salida a Internet para `apt` desde el rango .23–.33 | ✅ | 17/11 con LNX01 (DNS públicos en netplan porque el DNS del aula no responde) |
@@ -144,8 +144,8 @@
 
 | ID | Tarea | Estado | Notas |
 |---|---|---|---|
-| DB-01 | SQL Server 2025 Enterprise Developer en LNX01 y LNX02 | ⏳ | 17/11: paquetes instalados en LNX01 (y en los clones); falta `mssql-conf setup` en cada nodo y activar Always On |
-| DB-02 | SQL Server Express en BKP01 (réplica de solo configuración) | ⏳ | Paquetes en el clon; falta personalizar BKP01 y `mssql-conf setup` |
+| DB-01 | SQL Server 2025 Enterprise Developer en LNX01 y LNX02 | ✅ | 19/11: `mssql-conf setup` (opción 2), `hadr.hadrenabled 1` y Agente activado. `sqlcmd` → Enterprise Developer, `alwayson = 1`. 📸 `lnx0x_mssql-status`, `lnx0x_mssql-comprobacion` |
+| DB-02 | SQL Server Express en BKP01 (réplica de solo configuración) | ✅ | 19/11: `mssql-conf setup` (opción 4) y `hadr.hadrenabled 1` (sin Agente: Express no lo incluye). `sqlcmd` → Express, `alwayson = 1`. Falta añadirla al AG como réplica de solo configuración (DB-03/04). 📸 `bkp01_mssql-*` |
 | DB-03 | Always On AG con commit síncrono, endpoints con certificados | ⏳ | |
 | DB-04 | AG como recurso de Pacemaker, listener en la VIP .27 | ⏳ | Punto de control 1/12 (plan B: conmutación manual) |
 | DB-05 | Base de datos de la aplicación web | ❓ | Depende de la aplicación |

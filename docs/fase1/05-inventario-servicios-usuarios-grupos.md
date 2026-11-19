@@ -1,7 +1,7 @@
 # Inventario de servicios, usuarios y grupos – Fase 1
 
 **Grupo 3:** Max · Oriol
-**Versión:** 0.9 (parcial) · 19/11/2026 (DC02 promovido y replicando) · v0.8 · 19/11/2026 (estado de AD/DNS y DC02) · v0.7 · 18/11/2026 (DNS y GPO de DC01)
+**Versión:** 0.10 (parcial) · 19/11/2026 (SQL Server configurado; BKP01 y BKP02 creadas) · v0.9 · 19/11/2026 (DC02 promovido y replicando) · v0.8 · 19/11/2026 (estado de AD/DNS y DC02) · v0.7 · 18/11/2026 (DNS y GPO de DC01)
 
 > Entregable obligatorio de la Fase 1 (Anexo I, apartado 12). Esta versión recoge lo que ya está creado en el dominio. Faltan la matriz de permisos P-01 a P-44, los grupos `DL_`, el diagrama de anidamiento y las evidencias de las pruebas.
 
@@ -14,9 +14,9 @@
 | Virtualización | Proxmox VE | 192.168.202.3 | Funcionando |
 | AD DS + DNS | DC01 / DC02 | .23 / .24 | DC01 funcionando en VirtualBox (pendiente de importar). DNS configurado y verificado (18/11; reenviadores 8.8.8.8 y 1.1.1.1) y GPO de seguridad (18/11) · **DC02 promovido el 19/11 en VirtualBox** (DNS + catálogo global), replicando con DC01; reenviadores 8.8.8.8 y 1.1.1.1 y DNS cruzado. Pendiente: importar los dos DC en Proxmox |
 | Ficheros (DFS, FSRM) | FS01 / FS02 | .25 / .26 | Sin crear |
-| Web + SFTP + SQL Server (VIP) | LNX01 / LNX02 | .27 (VIP) · .28 / .29 | LNX01 (VMID 128, .28) y LNX02 (VMID 129, .29) en Proxmox con SQL Server 2025 instalado sin configurar (17/11). Resto de servicios sin instalar |
+| Web + SFTP + SQL Server (VIP) | LNX01 / LNX02 | .27 (VIP) · .28 / .29 | LNX01 (VMID 128, .28) y LNX02 (VMID 129, .29) en Proxmox con SQL Server 2025 **Enterprise Developer** configurado, Always On y Agente activados (19/11). Resto de servicios sin instalar |
 | DHCP (Kea) | LNX01 / LNX02 | .28 / .29 | Sin crear |
-| Copias (Bareos) | BKP01 / BKP02 | .30 / .31 | Sin crear |
+| Copias (Bareos) | BKP01 / BKP02 | .30 / .31 | BKP01 (VMID 130) y BKP02 (VMID 131) creadas y personalizadas en Proxmox. BKP01 con SQL Server 2025 **Express** y Always On (futura réplica de solo configuración del AG). Bareos sin instalar |
 
 Todas las máquinas se unen al dominio `cibernova.local` (decidido el 17/11/2026, [guía 07](07-guia-dominio-dc02-union.md)). Estado detallado de cada servicio: [lista de tareas](../gestion/lista-tareas-fase1.md).
 

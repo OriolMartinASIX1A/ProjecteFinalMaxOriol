@@ -2,7 +2,7 @@
 
 **Proyecto:** Plan de modernización tecnológica de CiberNova Solutions
 **Equipo:** Grupo 3 – Max (Linux) · Oriol (Windows)
-**Versión:** 0.7 (borrador) · 19/11/2026 · Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
+**Versión:** 0.8 (borrador) · 19/11/2026 · BKP02 creada desde la instantánea `base-limpia` (sin SQL Server) · v0.7 (19/11): Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
 
 > Este documento recoge el análisis de necesidades, las decisiones técnicas con sus alternativas y el diseño de la infraestructura de la Fase 1. Es un documento vivo: cada cambio queda registrado en el historial de Git y, si supone un desfase, en la [bitácora](../gestion/bitacora.md).
 
@@ -404,7 +404,7 @@ Los servidores solo pueden estar encendidos en horario de proyecto y el centro p
 | **Cierre del repositorio el 4/12/2026** (11 días antes del fin de la fase) | Cierta | Alto | Calendario replanificado (D-04): servicios y pruebas en las sesiones 2–6; subida final el 4/12 |
 | Poco espacio en `local` (~24 GB libres) para las OVA | Media | Bajo | Subir y borrar las OVA de una en una |
 | **El DNS del aula (192.168.200.254) no responde** a las VMs del rango .23–.33 (comprobado el 17/11), aunque sí hay salida a Internet | **Ocurrido** | Medio | Linux con DNS públicos (8.8.8.8, 1.1.1.1) mientras no estén los DC; después, clientes y servidores → .23/.24 y reenviadores de los DC → **8.8.8.8 y 1.1.1.1** (decidido el 18/11: además, la red del aula **intercepta el DNS**, así que los DC no pueden resolver solos desde los servidores raíz) |
-| Clones de VM con identificadores repetidos (`machine-id`, claves SSH, IP) | Media | Alto | Personalizar cada clon antes de conectarlo con el original encendido (memoria técnica 2.3.5) |
+| Clones de VM con identificadores repetidos (`machine-id`, claves SSH, IP) | Media | Alto | Personalizar cada clon antes de conectarlo con el original encendido (memoria técnica 2.3.4) |
 | DC duplicado o restaurado desde una copia antigua tras la importación | Baja | Muy alto | Importar cada DC una sola vez y apagar definitivamente la copia de VirtualBox |
 
 ---
@@ -415,7 +415,7 @@ Los servidores solo pueden estar encendidos en horario de proyecto y el centro p
 
 - [x] Host confirmado (17/11): RAID 10 por hardware, LVM-thin, una sola NIC con cable, `vmbr0` /22, Proxmox 9.2.21.
 - [x] ~~La VM Ubuntu "WEB01" (192.168.202.25) se adapta a LNX01 (.28)~~ (16/11). **Anulado el 17/11:** WEB01 no era Ubuntu 24.04; LNX01 se instaló de cero en VirtualBox y se importa como OVA (desfase D-03). La .25 queda para FS01.
-- [x] LNX02 y BKP01 creadas el 17/11 clonando LNX01 en Proxmox (opción A, con `machine-id`, claves SSH, nombre e IP propios). BKP02: también como clon [PENDIENTE DE CONFIRMAR].
+- [x] LNX02 y BKP01 creadas el 17/11 clonando LNX01 en Proxmox (opción A, con `machine-id`, claves SSH, nombre e IP propios). BKP01 personalizada el 18/11. **BKP02 (19/11): clon de la instantánea `base-limpia` de LNX01**, anterior a SQL Server, para que solo tenga el software que necesita (alternativa descartada: clonar LNX01 actual y desinstalar SQL Server).
 - [ ] Decidir la aplicación web (debe usar SQL Server).
 - [ ] Hablar con el profesorado del DHCP en la red del aula y de una segunda NIC.
 - [ ] Fase 2: la IA necesitará al menos una IP; se reutilizarán .32/.33 o se pedirán más.
