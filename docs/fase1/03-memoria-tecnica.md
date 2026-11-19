@@ -1,7 +1,7 @@
 # Memoria técnica de la infraestructura desplegada – Fase 1
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 0.4 · 17/11/2026 (sesión 1)
+**Versión:** 0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
 
 > Documento vivo: se amplía al terminar cada servicio. Lo marcado con **[PENDIENTE DE CONFIRMAR]** hay que verificarlo.
 
@@ -12,13 +12,15 @@
 | VM | Estado | Dónde está | Notas |
 |---|---|---|---|
 | Host Proxmox | Instalado (Proxmox VE 9.2.21, nodo `PROC`) | Servidor físico (192.168.202.3) | Ver [guía del hipervisor](02-guia-instalacion-hipervisor.md) |
-| DC01 | **Completo** (16/11). **No se importó el 17/11 (D-05)**: bosque `cibernova.local`, DNS con reenviador, 23 OU, 27 grupos, 89 empleados, 6 cuentas adm., 6 cuentas especiales y políticas de contraseña. Capturas en la memoria | **VirtualBox** (exportar a OVA e importar en Proxmox el 17/11) | |
-| DC02 | **Sin montar** (no promovido a DC) | — | Ver precauciones del apartado 2.4 antes de crearlo |
+| DC01 | **AD completo** (16/11): bosque `cibernova.local`, 23 OU, 27 grupos, 89 empleados, 6 cuentas adm., 6 cuentas especiales y políticas de contraseña. **DNS configurado y verificado** (18/11, apartado 3.3) y **GPO de seguridad** (18/11, apartado 3.4). Hora con `hora.roa.es`. **No se importó el 17/11 (D-05).** Faltan los grupos `DL_` y la unión del resto de máquinas | **VirtualBox** (exportar a OVA e importar en Proxmox en la sesión 2) | |
+| DC02 | **Promovido el 19/11 en VirtualBox** (DNS + catálogo global), replicando con DC01 | Pendiente de exportar a OVA e importar en Proxmox (VMID 124) junto con DC01 | Ver precauciones del apartado 2.4 y [guía 07](07-guia-dominio-dc02-union.md), apartado 2 |
 | LNX01 | **Proxmox (VMID 128)**: Ubuntu 24.04.5, IP .28 fija, DNS públicos, SQL Server 2025 instalado sin configurar | **Proxmox** | Importación manual (el asistente falló). Apartado 2.3 |
 | LNX02 | **Proxmox (VMID 129)**: clon de LNX01 personalizado, IP .29, SQL Server sin configurar | Proxmox | Apartado 2.3.4 |
 | BKP01 | **Proxmox (VMID 130)**: clonada, **sin personalizar** (tiene `lnx01` y .28 dentro) | Proxmox | Personalizar en la sesión 2 |
 | BKP02 | No existe | — | Clon sin SQL Server (sesión 2) |
 | FS01, FS02, clientes | Sin crear | — | — |
+
+> **Lista de todo lo pendiente** (requisitos del enunciado y del Anexo I, con su estado): [`docs/gestion/lista-tareas-fase1.md`](../gestion/lista-tareas-fase1.md).
 
 ---
 
@@ -182,7 +184,7 @@ sudo resolvectl dns ens18 8.8.8.8 1.1.1.1     # prueba temporal
 resolvectl query packages.microsoft.com       # OK
 ```
 
-**Conclusión:** el router del aula da salida a Internet al rango .23–.33, pero **no contesta a las consultas DNS**. Es la misma causa del FAIL del reenviador en el `dcdiag` de DC01. **Solución:** `nameservers: addresses: [8.8.8.8, 1.1.1.1]` en netplan (sin 192.168.200.254: si se deja el primero, cada consulta espera varios segundos). Cuando DC01/DC02 estén en Proxmox, los Linux pasan a .23/.24 y los DC reenvían a 8.8.8.8/1.1.1.1 **[PENDIENTE DE CONFIRMAR]**.
+**Conclusión:** el router del aula da salida a Internet al rango .23–.33, pero **no contesta a las consultas DNS**. Es la misma causa del FAIL del reenviador en el `dcdiag` de DC01. **Solución:** `nameservers: addresses: [8.8.8.8, 1.1.1.1]` en netplan (sin 192.168.200.254: si se deja el primero, cada consulta espera varios segundos). Cuando DC01/DC02 estén en Proxmox, los Linux pasan a .23/.24 y los DC reenvían a **8.8.8.8 y 1.1.1.1** (decidido el 18/11; el 18/11 se comprobó además que la red del aula **intercepta el DNS**, apartado 3.3).
 
 ### 2.3.4 SQL Server 2025 en LNX01 y clones LNX02/BKP01 (17/11, opción A)
 
@@ -251,6 +253,8 @@ Regla: **en cuanto una VM se importa, la de Proxmox es la buena**; la copia de V
 - **DC02 no se puede crear clonando DC01.** Un DC promovido no se clona nunca. DC02 se crea con una instalación limpia de Windows Server 2025 (o clonando una plantilla **sin dominio** a la que se haya pasado `sysprep /generalize /oobe /shutdown`), y después se promueve como DC adicional del dominio `cibernova.local`.
 - Importar cada DC **una sola vez** y **dejar apagada para siempre (o borrar)** la copia de VirtualBox. Dos DC01 encendidos a la vez (misma IP y nombre) corrompen el dominio.
 - No restaurar nunca un OVA o instantánea antigua de un DC después de que haya replicado con el otro (problema de *USN rollback*). Para recuperar un DC se usa la copia de *system state*.
+- **Dónde se promociona DC02 (decidido por Max el 19/11, confirmado con Oriol):** en **VirtualBox**, en el mismo equipo que DC01 y con las dos VMs en adaptador puente. Se comprueba la replicación allí y después se exportan e importan en Proxmox **los dos DC**, arrancando primero DC01 y volviendo a poner las IP. Alternativas descartadas: promocionar en Proxmox (obliga a importar antes DC01, D-05, y gasta tiempo de sesión) y red interna de VirtualBox. Procedimiento completo: [guía 07](07-guia-dominio-dc02-union.md), apartado 2.
+- **Resultado (19/11):** DC02 promovido y replicando (`repadmin /replsummary` 0 errores, SYSVOL en estado 4, usuario de prueba replicado). Incidencias: DNS de la tarjeta mal escrito (192.168.**102**.23) y el asistente solo aceptó la credencial en formato UPN (`Administrador@cibernova.local`, no `CIBERNOVA\Administrador`). Hora desde DC01, GPO de dominio aplicadas y los 5 roles FSMO en DC01.
 
 ### 2.5 Trabajo en casa con las VMs Ubuntu (propuesta pendiente de decidir)
 
@@ -281,11 +285,57 @@ LNX02, BKP01 y BKP02 ya están en Proxmox. Para trabajar en casa con el servidor
 ### 3.2 Configuración DNS recomendada tras importar en Proxmox
 
 - DNS de la tarjeta de DC01: **preferido 192.168.202.24 (DC02)**, alternativo **127.0.0.1** (práctica recomendada por Microsoft cuando hay dos DC). Mientras DC02 no exista: preferido 127.0.0.1.
-- **Reenviadores** del servidor DNS: 192.168.200.254 (DNS del aula).
+- **Reenviadores** del servidor DNS: 8.8.8.8 y 1.1.1.1 (el DNS del aula, 192.168.200.254, no responde; ver 3.3).
 - Comprobar con `dcdiag /test:dns` y `nslookup cibernova.local`.
-- **Estado (16/11, DC01 en VirtualBox en un equipo del aula):** reenviador configurado; `dcdiag /test:dns` supera todas las pruebas salvo *Reenviadores*: la VM de VirtualBox no tiene salida a Internet (solo red del aula), así que el reenviador no puede resolver nombres externos. Esperado; repetir en Proxmox, donde debe salir PASS.
+- **Estado (16/11, DC01 en VirtualBox en un equipo del aula):** reenviador configurado; `dcdiag /test:dns` supera todas las pruebas salvo *Reenviadores*: la VM de VirtualBox no tiene salida a Internet (solo red del aula), así que el reenviador no puede resolver nombres externos. **Corregido el 18/11:** DC01 sí tiene Internet; lo que falla es el DNS del aula, que además intercepta todo el tráfico DNS (apartado 3.3).
 
-### 3.3 Incidencias
+### 3.3 Configuración del servicio DNS (script 04, 17/11/2026)
+
+**Requisito:** el enunciado (Fase 1) pide desplegar **DNS** como servicio, **redundante** y **documentado**. DC01 ya resolvía el dominio (zona `cibernova.local` creada al promocionar y reenviador al aula), pero faltaba completar y endurecer el servicio. Se preparó `scripts/windows/04-configurar-dns.ps1` (idempotente) con su comprobación `93-comprobar-dns.ps1`; finalmente la configuración se hizo por la interfaz gráfica (ver Estado).
+
+**Diagnóstico de la red del aula (18/11):** con 127.0.0.1 como único DNS y solo los servidores raíz, DC01 daba SERVFAIL. Un servidor raíz (198.41.0.4) devolvió las IP de `www.google.com`, cosa que un servidor raíz real nunca hace, con un TTL de caché (33620 en lugar de 518400), y no contestaba a las consultas sin recursión. **Conclusión: la red del aula intercepta todo el tráfico DNS** y no permite que un servidor resuelva por sí mismo desde la raíz. Desactivar EDNS no cambió nada.
+
+| # | Configuración | Por qué | Alternativa descartada |
+|---|---|---|---|
+| 1 | Zona directa `cibernova.local` **integrada en AD** | Se replica sola a DC02 con la replicación de AD: DNS redundante sin configurar zonas secundarias. | Zona primaria en fichero + secundaria en DC02: dos configuraciones y un único servidor que acepta cambios. |
+| 2 | **Solo actualizaciones dinámicas seguras** | Solo los equipos del dominio (autenticados con Kerberos) pueden registrar o cambiar sus nombres. Evita que un equipo cualquiera de la red compartida del aula suplante un nombre. | Seguras y no seguras: cualquiera podría registrar `fs01`. |
+| 3 | **Transferencias de zona desactivadas** | Con zonas integradas en AD no hacen falta; dejarlas abiertas permite descargar todo el inventario de nombres (hallazgo típico de auditoría, Fase 3). | Permitir a los servidores de nombres: innecesario. |
+| 4 | **Zona inversa** `202.168.192.in-addr.arpa` (192.168.202.0/24), integrada en AD | Resolución IP → nombre: la usan `nslookup`, los registros de auditoría y algunos servicios (Kerberos, SQL Server, SSH). Todas las VMs y el host están en 192.168.202.x, así que basta una zona /24 aunque la red sea /22. | Cuatro zonas /24 para todo el /22: el resto del /22 es de otros grupos. |
+| 5 | **Reenviadores 8.8.8.8 (Google) y 1.1.1.1 (Cloudflare)** + sugerencias de raíz como respaldo (cambio del 18/11/2026; corregido a las 17:35: se había anotado 1.1.1.1 y 9.9.9.9) | La red del aula **intercepta el DNS**: el .254 no responde y la resolución propia desde los servidores raíz da SERVFAIL (diagnóstico en la bitácora, 18/11). Dos reenviadores de **proveedores distintos** para tener redundancia. La tarjeta de DC01 sigue solo con 127.0.0.1, así que DC01 es el DNS de todo el dominio y solo reenvía lo de Internet. | (a) DNS del aula .254: no responde. (b) Solo servidores raíz (resolución propia, la opción preferida): imposible con la intercepción; se recuperará si el profesorado da DNS sin interceptar. (c) 8.8.8.8 en la tarjeta: mala práctica en un DC (las consultas de `cibernova.local` podrían salir fuera). (d) 1.1.1.1 y 9.9.9.9 para no depender de Google: valorada, no aplicada. |
+| 6 | **Registros fijos A + PTR** de `lnx01`, `lnx02`, `bkp01`, `bkp02` | Los Ubuntu no se registran solos en el DNS de Windows (SSSD puede, pero se prefiere un registro fijo para servidores). | `dyndns_update` de SSSD: depende de que la unión funcione y es más difícil de explicar. |
+| 7 | `www`, `sftp`, `sqlag` → VIP 192.168.202.27 (creados el 18/11) | Los clientes usan un nombre de servicio que sigue a la VIP de Pacemaker, sin depender de qué nodo está activo. | Apuntar a `lnx01`: dejaría de funcionar al conmutar. |
+| 8 | **Envejecimiento y limpieza** (7 + 7 días) | Borra registros dinámicos de equipos que ya no existen (p. ej. una VM rehecha con otro nombre). Los registros fijos no caducan. Al cargar la zona, Windows espera un intervalo antes de limpiar, así que apagar el laboratorio en vacaciones no borra nada. | Sin limpieza: registros obsoletos con el tiempo. |
+| 9 | DNS de la tarjeta de DC01: **.24 + 127.0.0.1** (desde el 19/11; antes solo 127.0.0.1) | Recomendación de Microsoft para dos DC (ver 3.2). | — |
+
+**Redundancia:** las zonas (directa e inversa) se replican a DC02 al promocionarlo con `-InstallDns`. Los **reenviadores no se replican**: hay que configurarlos también en DC02. **DC02 (19/11):** reenviadores **8.8.8.8 y 1.1.1.1**. Al promocionar, el asistente puso DC01 como reenviador de DC02, y en DC01 se había puesto DC02: **se quitan los dos**, porque *evita bucles y dependencia mutua* (cada DC ya tiene las zonas replicadas y, si uno cae, el otro sigue resolviendo Internet). Comprobado en DC02 con `nslookup` directo e inverso de lnx01 contra 127.0.0.1. Las tarjetas quedan con DNS cruzado: DC01 → .24 + 127.0.0.1; DC02 → .23 + 127.0.0.1.
+
+Comprobación en DC02: `93-comprobar-dns.ps1 -Servidor 192.168.202.24`.
+
+**Ejecución en DC01:**
+```powershell
+cd C:\CiberNova
+powershell -ExecutionPolicy Bypass -File .\04-configurar-dns.ps1
+```
+**Estado:** el script 04 v1.0 se ejecutó en DC01 el 17/11 y después se deshizo con `84-deshacer-dns.ps1` v1.0 para empezar de cero. El 18/11 se configuró todo lo de la tabla **por la interfaz gráfica** (Administrador de DNS) y se verificó con `nslookup` y `dcdiag /test:dns`; los reenviadores quedaron en 8.8.8.8 y 1.1.1.1. El script 04 v1.2 hace lo mismo y queda como forma reproducible de configurarlo (por ejemplo, en DC02 o si hay que reinstalar). DC01 resuelve `cibernova.local` e Internet con 127.0.0.1 como único DNS de la tarjeta.
+
+### 3.4 GPO de seguridad (script 05, 18/11/2026)
+
+Los scripts 01–03 no crean GPO (se aplazaron el 16/11). Se crean con `scripts/windows/05-gpo.ps1` v1.1 y se comprueban con `94-comprobar-gpo.ps1` v1.0, que además guarda un informe HTML de cada GPO en `C:\CiberNova\informes-gpo\`.
+
+| GPO | Vinculada en | Configuración | Por qué |
+|---|---|---|---|
+| `GPO_Dominio_CuentasServicio` | Dominio | Denegar inicio de sesión local y por Escritorio remoto a `G_Cuentas_Servicio` | Anexo I, ap. 5: las cuentas `svc_*` no inician sesión interactiva. Los servicios que las usan siguen funcionando (inicio de sesión de servicio). En los Linux unidos, SSSD aplica también la denegación (SSH) |
+| `GPO_Equipos_SinCuentasAdm` | OU Equipos | Lo mismo para `G_Admin_Sistemas` (solo las 6 cuentas `adm.`) | Anexo I, ap. 5: las cuentas `adm.` no se usan en los equipos de usuarios. En los servidores sí pueden entrar |
+| `GPO_Dominio_Firewall` | Dominio | Firewall activado en los 3 perfiles, entrada bloqueada, salida permitida, reglas locales respetadas y regla de ping | Compensa la red plana sin VLAN (diseño 3.11). Las reglas que crean los roles (AD, DNS, DFS) se mantienen |
+| `GPO_Servidores_Auditoria` | OU Servidores | Auditoría avanzada: sistema de archivos e inicio de sesión (correcto y error) + forzar subcategorías | Base de P-11, P-39 y la prueba 15; las carpetas se marcarán (SACL) con FS01/FS02 |
+
+**Alternativa descartada:** crearlas a mano en `gpmc.msc` (se dieron los pasos gráficos), porque con script quedan versionadas y se pueden repetir.
+
+**Incidencia:** la v1.0 se paró en el firewall: `Get-NetFirewallRule` no admite `-GPOSession`. La v1.1 busca la regla con `-PolicyStore` y, al ser idempotente, la segunda ejecución completó lo que faltaba.
+
+**Estado (18/11):** ejecutado en DC01; `gpupdate /force` y `94-comprobar-gpo.ps1` → **25 OK, 0 FALLO**. DC01 aplica las GPO de cuentas de servicio y de firewall. Las de Equipos y Servidores se comprobarán al unir CLI01/CLI02 y FS01/FS02. Lo que no hace, a propósito: el privilegio de copia de `svc_backup` (con FS01/FS02 y Bareos).
+
+### 3.5 Incidencias
 
 - La instalación del rol de dominio tardó mucho, pero funcionó a la primera.
 
@@ -429,9 +479,12 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 
 ## 7. Pendiente
 
+> La lista completa y ordenada está en [`docs/gestion/lista-tareas-fase1.md`](../gestion/lista-tareas-fase1.md). Aquí solo se resume lo inmediato de las VMs ya construidas.
+
 - [x] Ejecutar el script 02 v2.2 en DC01 y hacer las capturas (16/11).
 - [ ] Exportar DC01 a OVA, importarlo en Proxmox y comprobar red, DNS (`dcdiag /test:dns`) y rendimiento (pasa a la sesión 2, D-05).
-- [ ] Crear DC02 (instalación limpia, no clon de DC01), promoverlo y comprobar la replicación (`repadmin /replsummary`).
+- [x] Crear DC02 (instalación limpia, no clon de DC01), promoverlo y comprobar la replicación (`repadmin /replsummary`): 19/11, en VirtualBox.
+- [ ] Exportar DC01 y DC02 a OVA e importarlos en Proxmox (123 y 124, DC01 primero).
 - [x] LNX01 instalada en VirtualBox y exportada a OVA (17/11, apartado 2.3.1).
 - [x] Importar LNX01 en Proxmox (VMID 128, 17/11). WEB01 y las demás VMs antiguas, borradas.
 - [x] Netplan fijo de LNX01 con DNS públicos (17/11).
@@ -442,5 +495,8 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 - [x] OU Equipos y Servidores: script 01 v2.1 ejecutado en DC01, 23 OU (16/11).
 - [x] Ejecutar `03-cuentas-especiales.ps1` en DC01: 26 comprobaciones OK (16/11).
 - [ ] Caducidad de `auditor.ext` cuando se sepa el fin de la Fase 3.
-- [ ] GPO: denegar inicio de sesión interactivo a `G_Cuentas_Servicio`; privilegio de copia para `svc_backup`; perfil obligatorio de `recepcion.bcn`.
-- [ ] Carpetas personales, cuotas y perfiles (cuando esté el servidor de ficheros).
+- [ ] GPO pendientes: privilegio de copia para `svc_backup`; perfiles (móvil, redirección, obligatorio de `recepcion.bcn`) y unidades de red.
+- [ ] Carpetas personales (creadas por el script de alta), cuotas y perfiles (cuando esté el servidor de ficheros).
+- [x] Configurar el DNS de DC01 (script 04, 17/11; deshecho con el 84 y rehecho por la interfaz gráfica el 18/11; reenviadores 8.8.8.8 y 1.1.1.1).
+- [x] GPO de seguridad (script 05 v1.1, 18/11): 25 OK.
+- [ ] Unir todas las máquinas al dominio ([guía 07](07-guia-dominio-dc02-union.md)).

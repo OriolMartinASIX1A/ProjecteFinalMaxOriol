@@ -1,7 +1,7 @@
 # Inventario de servicios, usuarios y grupos – Fase 1
 
 **Grupo 3:** Max · Oriol
-**Versión:** 0.6 (parcial) · 17/11/2026 (sesión 1)
+**Versión:** 0.9 (parcial) · 19/11/2026 (DC02 promovido y replicando) · v0.8 · 19/11/2026 (estado de AD/DNS y DC02) · v0.7 · 18/11/2026 (DNS y GPO de DC01)
 
 > Entregable obligatorio de la Fase 1 (Anexo I, apartado 12). Esta versión recoge lo que ya está creado en el dominio. Faltan la matriz de permisos P-01 a P-44, los grupos `DL_`, el diagrama de anidamiento y las evidencias de las pruebas.
 
@@ -12,11 +12,13 @@
 | Servicio | Servidor(es) | IP | Estado |
 |---|---|---|---|
 | Virtualización | Proxmox VE | 192.168.202.3 | Funcionando |
-| AD DS + DNS | DC01 / DC02 | .23 / .24 | DC01 funcionando en VirtualBox (pendiente de importar) · DC02 sin montar |
+| AD DS + DNS | DC01 / DC02 | .23 / .24 | DC01 funcionando en VirtualBox (pendiente de importar). DNS configurado y verificado (18/11; reenviadores 8.8.8.8 y 1.1.1.1) y GPO de seguridad (18/11) · **DC02 promovido el 19/11 en VirtualBox** (DNS + catálogo global), replicando con DC01; reenviadores 8.8.8.8 y 1.1.1.1 y DNS cruzado. Pendiente: importar los dos DC en Proxmox |
 | Ficheros (DFS, FSRM) | FS01 / FS02 | .25 / .26 | Sin crear |
 | Web + SFTP + SQL Server (VIP) | LNX01 / LNX02 | .27 (VIP) · .28 / .29 | LNX01 (VMID 128, .28) y LNX02 (VMID 129, .29) en Proxmox con SQL Server 2025 instalado sin configurar (17/11). Resto de servicios sin instalar |
 | DHCP (Kea) | LNX01 / LNX02 | .28 / .29 | Sin crear |
 | Copias (Bareos) | BKP01 / BKP02 | .30 / .31 | Sin crear |
+
+Todas las máquinas se unen al dominio `cibernova.local` (decidido el 17/11/2026, [guía 07](07-guia-dominio-dc02-union.md)). Estado detallado de cada servicio: [lista de tareas](../gestion/lista-tareas-fase1.md).
 
 ---
 
@@ -172,6 +174,9 @@ Las cuentas adm. las crea el script 02 y las demás el script 03; los dos se eje
 | [`scripts/windows/01-crear-ou-grupos.ps1`](../../scripts/windows/01-crear-ou-grupos.ps1) (v2.1) | OU (incluidas Equipos y Servidores) y grupos globales (incluidos G_Politica_15 y G_Admin_Sistemas) |
 | [`scripts/windows/02-alta-usuarios.ps1`](../../scripts/windows/02-alta-usuarios.ps1) (v2.2) | Políticas de contraseña, 89 empleados, grupos, restricciones de becarios, 6 cuentas adm. y sus privilegios. Errores de la v1 y correcciones: [memoria técnica, apartado 5.2](03-memoria-tecnica.md#52-error-de-la-versión-1-y-corrección) |
 | [`scripts/windows/03-cuentas-especiales.ps1`](../../scripts/windows/03-cuentas-especiales.ps1) (v1.0) | recepcion.bcn, auditor.ext y las 4 cuentas de servicio, con sus restricciones y grupos |
+| [`scripts/windows/04-configurar-dns.ps1`](../../scripts/windows/04-configurar-dns.ps1) (v1.0) | Configuración del DNS de DC01 (pendiente de ejecutar) |
+| Carpetas personales | **[PENDIENTE]** Las debe crear el script de alta (condición obligatoria del Anexo I): nueva versión del script 02 cuando exista el servidor de ficheros |
+| Carpetas compartidas, grupos `DL_` y permisos | **[PENDIENTE]** Script nuevo (propuesta: `05-carpetas-permisos.ps1`) |
 | Movimientos de personal | **[PENDIENTE]** (Anexo I, apartado 11) |
 
 ## 8. Pendiente para completar el inventario
@@ -180,3 +185,6 @@ Las cuentas adm. las crea el script 02 y las demás el script 03; los dos se eje
 - [ ] Diagrama de OU y de anidamiento de grupos.
 - [ ] Script de movimientos de personal.
 - [ ] Evidencias de las 15 pruebas de verificación.
+- [ ] Carpetas personales creadas por el script de alta.
+
+Lista completa: [`docs/gestion/lista-tareas-fase1.md`](../gestion/lista-tareas-fase1.md) (apartados 2, 5, 6 y 15).

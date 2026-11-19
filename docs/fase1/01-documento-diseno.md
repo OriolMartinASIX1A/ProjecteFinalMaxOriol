@@ -2,7 +2,7 @@
 
 **Proyecto:** Plan de modernización tecnológica de CiberNova Solutions
 **Equipo:** Grupo 3 – Max (Linux) · Oriol (Windows)
-**Versión:** 0.4 (borrador) · 17/11/2026 · Actualizado con lo ya construido (DC01, OU, grupos y usuarios; LNX01 en Proxmox) y los datos reales del host
+**Versión:** 0.7 (borrador) · 19/11/2026 · Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
 
 > Este documento recoge el análisis de necesidades, las decisiones técnicas con sus alternativas y el diseño de la infraestructura de la Fase 1. Es un documento vivo: cada cambio queda registrado en el historial de Git y, si supone un desfase, en la [bitácora](../gestion/bitacora.md).
 
@@ -82,6 +82,9 @@ Instalación: sistema de archivos ext4 sobre el RAID 10 por hardware (`/dev/sda`
 
 - Dominio: `cibernova.local` · NetBIOS: `CIBERNOVA`.
 - Dos controladores de dominio (DC01, DC02), ambos catálogo global y DNS integrado en AD.
+- **Un solo dominio (decidido 17/11/2026).** Alternativa descartada: un dominio por sede o dos dominios. Motivos: el Anexo I pide una única plantilla y una única estructura de carpetas para las tres sedes; la redundancia la dan los **dos DC del mismo dominio**; las sedes se representan con OU y atributos (y, si hiciera falta, Sitios de AD); la frontera de seguridad real de AD es el bosque, así que un segundo dominio añade confianzas, grupos duplicados y 4 DC sin aislar de verdad.
+- **Todas las máquinas en el dominio (decidido por Max, 17/11/2026):** DC02 como segundo DC; FS01, FS02 y clientes como miembros; LNX01, LNX02, BKP01 y BKP02 con **realmd + SSSD** (alternativas descartadas: Linux con cuentas locales, por tener dos sistemas de identidades; Samba/winbind, más complejo). En los Linux solo inicia sesión `G_Admin_Sistemas` y se conserva una cuenta local de emergencia; los servicios del clúster no dependen del dominio para arrancar. Host Proxmox: propuesta de no unirlo (dependencia circular) [PENDIENTE DE CONFIRMAR]. Procedimiento: [guía 07](07-guia-dominio-dc02-union.md).
+- **Configuración del DNS:** zonas integradas en AD (se replican a DC02), solo actualizaciones seguras, sin transferencias de zona, zona inversa 192.168.202.0/24, reenviadores, registros fijos de los Linux y nombres de servicio hacia la VIP. **Reenviadores 8.8.8.8 (Google) y 1.1.1.1 (Cloudflare)** (18/11/2026; corregido el 18/11 a las 17:35, antes se había anotado 1.1.1.1 y 9.9.9.9): la red del aula intercepta el DNS y no permite la resolución propia desde los servidores raíz, que era la opción preferida. Dos proveedores distintos para tener redundancia. **Los DC no se reenvían entre sí** (19/11): evita bucles y dependencia mutua; los dos tienen las mismas zonas y cada uno sale a Internet por su cuenta. Justificación de cada punto en la [memoria técnica, apartado 3.3](03-memoria-tecnica.md).
 - **Nota sobre `.local`:** es un sufijo reservado para mDNS (RFC 6762). Se mantiene por decisión del equipo; para evitar conflictos, en los Ubuntu no se instala `avahi`/`libnss-mdns`. En producción se recomendaría un subdominio de un dominio propio (p. ej. `ad.cibernova.es`).
 
 ### 3.4 DHCP: **ISC Kea en HA (hot-standby)**
@@ -218,11 +221,11 @@ flowchart TB
 |---|---|
 | Red | 192.168.200.0/22 (255.255.252.0) |
 | Puerta de enlace | 192.168.200.254 |
-| DNS externo (reenviador) | 192.168.200.254 |
+| DNS externo (reenviadores de los DC) | 8.8.8.8 y 1.1.1.1 (el DNS del aula, 192.168.200.254, no responde; la red intercepta el DNS) |
 | Host Proxmox | 192.168.202.3 |
 | Rango asignado a VMs | 192.168.202.23 – 192.168.202.33 |
 
-Todos los servidores y clientes usan como DNS **.23 y .24** (los DC). Solo los DC reenvían al DNS del aula.
+Todos los servidores y clientes usan como DNS **.23 y .24** (los DC). Solo los DC reenvían hacia fuera (8.8.8.8 y 1.1.1.1).
 
 ### 5.2 Asignación
 
@@ -389,7 +392,7 @@ Los servidores solo pueden estar encendidos en horario de proyecto y el centro p
 
 | Riesgo | Probabilidad | Impacto | Mitigación |
 |---|---|---|---|
-| Poco tiempo de laboratorio (8 sesiones de 2 h) | Alta | Alto | Trabajo preparado en casa (scripts, configuraciones, documentación); plan B para el AG |
+| Poco tiempo de laboratorio: 6 sesiones de 2 h hasta el cierre de GitHub del 4/12 (D-04) | Alta | Alto | Trabajo preparado en casa (scripts, configuraciones, documentación); plan B para el AG |
 | Complejidad del AG de SQL Server en Linux con Pacemaker | Media | Alto | Semana dedicada; si no funciona el 1/12, plan B: AG con conmutación manual y documentar el desfase |
 | Caducidad de la evaluación de Windows Server 2025 (180 días, ~mayo) | Alta | Alto | Comprobar *rearm* con `slmgr /dlv`; registrar fecha de caducidad |
 | DHCP del aula responde a nuestros clientes | Media | Medio | Pool solo para clientes conocidos; coordinar con el profesorado |
@@ -400,7 +403,7 @@ Los servidores solo pueden estar encendidos en horario de proyecto y el centro p
 | Problemas al importar OVA de VirtualBox (disco o red no reconocidos, IP perdida) | **Ocurrido** (17/11, LNX01: el asistente no lee la OVA) | Medio | Importación manual (`tar` + `qm create` + `qm importdisk`); Windows con disco SATA y red E1000 hasta instalar VirtIO; reconfigurar la IP |
 | **Cierre del repositorio el 4/12/2026** (11 días antes del fin de la fase) | Cierta | Alto | Calendario replanificado (D-04): servicios y pruebas en las sesiones 2–6; subida final el 4/12 |
 | Poco espacio en `local` (~24 GB libres) para las OVA | Media | Bajo | Subir y borrar las OVA de una en una |
-| **El DNS del aula (192.168.200.254) no responde** a las VMs del rango .23–.33 (comprobado el 17/11), aunque sí hay salida a Internet | **Ocurrido** | Medio | Linux con DNS públicos (8.8.8.8, 1.1.1.1) mientras no estén los DC; después, clientes y servidores → .23/.24 y reenviadores de los DC → 8.8.8.8/1.1.1.1 **[PENDIENTE DE CONFIRMAR]** |
+| **El DNS del aula (192.168.200.254) no responde** a las VMs del rango .23–.33 (comprobado el 17/11), aunque sí hay salida a Internet | **Ocurrido** | Medio | Linux con DNS públicos (8.8.8.8, 1.1.1.1) mientras no estén los DC; después, clientes y servidores → .23/.24 y reenviadores de los DC → **8.8.8.8 y 1.1.1.1** (decidido el 18/11: además, la red del aula **intercepta el DNS**, así que los DC no pueden resolver solos desde los servidores raíz) |
 | Clones de VM con identificadores repetidos (`machine-id`, claves SSH, IP) | Media | Alto | Personalizar cada clon antes de conectarlo con el original encendido (memoria técnica 2.3.5) |
 | DC duplicado o restaurado desde una copia antigua tras la importación | Baja | Muy alto | Importar cada DC una sola vez y apagar definitivamente la copia de VirtualBox |
 
@@ -408,11 +411,17 @@ Los servidores solo pueden estar encendidos en horario de proyecto y el centro p
 
 ## 12. Pendientes
 
+> La lista completa de tareas y su estado está en [`docs/gestion/lista-tareas-fase1.md`](../gestion/lista-tareas-fase1.md).
+
 - [x] Host confirmado (17/11): RAID 10 por hardware, LVM-thin, una sola NIC con cable, `vmbr0` /22, Proxmox 9.2.21.
 - [x] ~~La VM Ubuntu "WEB01" (192.168.202.25) se adapta a LNX01 (.28)~~ (16/11). **Anulado el 17/11:** WEB01 no era Ubuntu 24.04; LNX01 se instaló de cero en VirtualBox y se importa como OVA (desfase D-03). La .25 queda para FS01.
-- [x] LNX02, BKP01 y BKP02 no existían (17/11): se crean como LNX01 (VirtualBox + paquetes → OVA → Proxmox).
+- [x] LNX02 y BKP01 creadas el 17/11 clonando LNX01 en Proxmox (opción A, con `machine-id`, claves SSH, nombre e IP propios). BKP02: también como clon [PENDIENTE DE CONFIRMAR].
 - [ ] Decidir la aplicación web (debe usar SQL Server).
 - [ ] Hablar con el profesorado del DHCP en la red del aula y de una segunda NIC.
 - [ ] Fase 2: la IA necesitará al menos una IP; se reutilizarán .32/.33 o se pedirán más.
 - [ ] Preguntar al profesorado si se esperan VLAN en la Fase 1 (apartado 3.11).
 - [ ] Fase 3: segmentación de red con VLAN y firewall redundante como remediación.
+- [ ] Diagramas de red y de arquitectura en `docs/diagramas` (Mermaid), exigidos en el entregable.
+- [ ] Decidir el uso de `svc_web` y `svc_bbdd` en los servicios Linux (mínimo privilegio).
+- [ ] Decidir cómo se mantiene igual el contenido web y los datos del SFTP en LNX01 y LNX02.
+- [ ] Copia de las VMs (norma 2 del enunciado): propuesta `vzdump` [PENDIENTE DE CONFIRMAR].

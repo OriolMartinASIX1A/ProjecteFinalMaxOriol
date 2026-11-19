@@ -1,7 +1,7 @@
 # Guía de instalación del hipervisor (Proxmox VE)
 
 **Grupo 3:** Max · Oriol
-**Versión:** 0.3 · 17/11/2026 · Basada en la instalación real del equipo y en las comprobaciones de la sesión 1
+**Versión:** 0.4 · 18/11/2026 · Basada en la instalación real del equipo y en las comprobaciones de la sesión 1
 
 > Objetivo: que cualquier persona pueda reinstalar el host desde cero con el mismo resultado. Los datos marcados con **[PENDIENTE DE CONFIRMAR]** hay que comprobarlos en el servidor.
 
@@ -146,3 +146,9 @@ Las VMs Windows iban muy lentas en Proxmox. Estas son las causas más probables 
 - [ ] Opcional: instalar `/etc/pve/pve-root-ca.pem` como CA de confianza en los portátiles para no tener el aviso del certificado autofirmado.
 - [ ] Orden de arranque de las VMs (DC → BKP → FS → LNX → clientes) en *VM → Options → Start/Shutdown order*.
 - [ ] Valorar con el profesorado conectar una segunda NIC para un bond active-backup.
+- [ ] Comprobar el nombre del almacenamiento de discos (`pvesm status`) para documentar la importación de OVA.
+- [ ] Usuario de Proxmox con permisos mínimos para `fence_pve` (Pacemaker).
+- [ ] Copia de las VMs (norma 2 del enunciado): propuesta `vzdump` [PENDIENTE DE CONFIRMAR].
+- [ ] Procedimiento de importación de OVA: está en la [memoria técnica, apartado 2.2](03-memoria-tecnica.md) y en la [guía 07, apartado 1.2](07-guia-dominio-dc02-union.md).
+
+Lista completa: [`docs/gestion/lista-tareas-fase1.md`](../gestion/lista-tareas-fase1.md), apartado 1.

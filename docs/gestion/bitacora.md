@@ -79,7 +79,7 @@ Registro continuo de decisiones, problemas, soluciones y desfases. Una entrada p
 | Planificado | Trabajo hasta el 15/12, con las pruebas del Anexo I y las pruebas de caída en la sesión 7 (10/12) y la entrega en la sesión 8 (15/12). |
 | Ocurrido | El 4/12/2026 es el último día para subir o modificar cosas en el repositorio. Todo lo que tenga que estar en la entrega (documentos, scripts, capturas, bitácora) debe estar subido ese día como muy tarde. |
 | Causa | Fecha de cierre de la entrega (comunicada al equipo). |
-| Medidas | Replanificación del calendario (17/11): todos los servicios, las 15 pruebas del Anexo I, las pruebas de caída y la de restauración pasan a las sesiones 2–6 (hasta el jueves 3/12). El viernes 4/12, fuera de horario: última revisión y subida. Las sesiones 7 y 8 quedan para ensayar la defensa (sin cambios en el repositorio). Opción mixta para Linux (paquetes instalados en casa) para ganar tiempo de laboratorio. |
+| Medidas | Replanificación del calendario (17/11): todos los servicios, las 15 pruebas del Anexo I, las pruebas de caída y la de restauración pasan a las sesiones 2–6 (hasta el jueves 3/12). El viernes 4/12, fuera de horario: última revisión y subida. Las sesiones 7 y 8 quedan para ensayar la defensa (sin cambios en el repositorio). Opción mixta para Linux (paquetes instalados en casa) para ganar tiempo de laboratorio. Lista de tareas con todos los requisitos del enunciado y del Anexo I (`docs/gestion/lista-tareas-fase1.md`) para no dejarse nada. |
 | Impacto | Alto: se pierden dos sesiones de margen para la entrega. Quedan 5 sesiones (10 h) para todos los servicios y las pruebas. **[PENDIENTE DE CONFIRMAR]** el nuevo calendario por Max y Oriol. |
 
 ### D-05 · DC01 no se importó en la sesión 1
@@ -89,12 +89,105 @@ Registro continuo de decisiones, problemas, soluciones y desfases. Una entrada p
 | Planificado | Sesión 1 (17/11): exportar DC01 a OVA, importarlo en Proxmox y comprobar red, DNS y dominio (punto de control del calendario). |
 | Ocurrido | DC01 sigue en VirtualBox; no se exportó ni se importó. |
 | Causa | **[PENDIENTE DE CONFIRMAR]** (Oriol). |
-| Medidas | Plan B del calendario: DC01 sigue en VirtualBox. Se importa al empezar la sesión 2 (19/11). Si el asistente de importación de Proxmox falla como con LNX01, se usa el método manual (`tar` + `qm create` + `qm importdisk`, memoria técnica 2.3.2), con disco SATA y red E1000 hasta instalar los drivers VirtIO. |
-| Impacto | DC02 no se puede promover hasta que DC01 esté en Proxmox: la sesión 2 de Oriol empieza por DC01. Se recupera con el margen de Windows (D-02). |
+| Medidas | Plan B del calendario: DC01 sigue en VirtualBox. Se importa al empezar la sesión 2 (19/11). Si el asistente de importación de Proxmox falla como con LNX01, se usa el método manual (`tar` + `qm create` + `qm importdisk`, memoria técnica 2.3.2), con disco SATA y red E1000 hasta instalar los drivers VirtIO. | **Actualización 19/11 (decisión de Max, confirmada con Oriol):** DC01 ya no se importa solo: primero se promociona DC02 en VirtualBox junto a DC01 y después se exportan e importan los dos (guía 07 v1.5, apartado 2).
+| Impacto | DC02 no se puede promover hasta que DC01 esté en Proxmox: la sesión 2 de Oriol empieza por DC01. Se recupera con el margen de Windows (D-02). **Actualización 19/11:** con la promoción en VirtualBox, DC02 ya no espera a que DC01 esté en Proxmox; lo que sigue esperando a los dos DC en Proxmox es la unión al dominio del resto de máquinas. |
 
 ---
 
 ## Entradas
+
+### 2026-11-19 · Sesión 2 y tarde (DC02 en VirtualBox) · Max y Oriol
+
+**Hecho (DC02, en VirtualBox, mismo equipo que DC01, adaptador puente):**
+- Instalación limpia de Windows Server 2025, nombre DC02, IP 192.168.202.24/22, DNS 192.168.202.23. Hora con DC01: +0,16 s.
+- Rol AD DS y promoción como segundo DC con **DNS y catálogo global**, replicando desde DC01.
+- DNS cruzado en las tarjetas: DC01 → .24 + 127.0.0.1; DC02 → .23 + 127.0.0.1 (`ipconfig /all`).
+- **Reenviadores** (por la interfaz gráfica: `dnsmgmt.msc` → servidor → Propiedades → Reenviadores): en DC02 se elimina DC01 y se añaden **8.8.8.8 y 1.1.1.1**; en DC01 se elimina DC02.
+- Comprobaciones de replicación: `repadmin /replsummary` **0 errores** en las dos direcciones; `repadmin /showrepl` 5 particiones correctas; `net share` con SYSVOL y NETLOGON; SYSVOL en **estado 4**; sin errores nuevos en el registro del sistema; usuario `prueba.replicacion` creado en DC01 y visto en DC02.
+- Comprobaciones finales en DC02 (18:03): `nslookup lnx01.cibernova.local 127.0.0.1` → .28 y la inversa de .28 → lnx01 (las zonas llegaron por replicación); `w32tm /query /source` → `DC01.cibernova.local`; `gpresult /r /scope computer` → `GPO_Dominio_CuentasServicio` y `GPO_Dominio_Firewall` aplicadas (las de Equipos y Servidores no aplican a Domain Controllers, es lo esperado); `netdom query fsmo` → los 5 roles en DC01. Todo funciona solo con los dos DC (todavía no hay más máquinas en el dominio).
+- Capturas (decisión de Max): roles FSMO y licencia (`slmgr /dlv`) de DC02. Las GPO quedan cubiertas por el informe del script 94; la replicación, por las capturas de `replsummary`.
+
+**Problemas y soluciones:**
+- Problema: `nslookup` agotaba el tiempo en DC02. → Causa: DNS mal escrito en la tarjeta (**192.168.102.23**). Solución: corregido a 192.168.202.23.
+- Problema: el asistente de promoción rechazaba `CIBERNOVA\Administrador` (*«El nombre de usuario o la contraseña no son correctos»*). → Solución: usar el formato UPN **`Administrador@cibernova.local`**.
+- Problema: `dcdiag /q` con fallos en DFSREvent y SystemLog. → Causa: eventos de la propia promoción (16:27, error del KDC al arrancar). SYSVOL en estado 4 y sin errores nuevos: no hay avería; desaparecen a las 24 h.
+- Problema: al promocionar, el asistente puso a **DC01 como reenviador de DC02** (usa el DNS que tenía la tarjeta), y en DC01 se había añadido DC02 como reenviador. → Solución: **se quitan los dos**; cada DC reenvía solo a 8.8.8.8 y 1.1.1.1 (más sugerencias de raíz).
+
+**Decisiones:**
+- **Los DC no se reenvían entre sí** (Max). Justificación: *evita bucles y dependencia mutua*. Los dos DC tienen las mismas zonas (replicadas por AD), así que reenviarse entre sí no resuelve nada nuevo, puede crear bucles cuando los públicos no responden y haría que cada DC dependiera del otro para salir a Internet (se pierde redundancia). Alternativa descartada: dejar el reenviador que pone el asistente.
+- Firewall y VLAN (consulta de Max): **sin cambios** respecto al 16/11. Red plana; firewall en cada servidor (GPO en Windows ✅; ufw/nftables en Ubuntu ⏳ al montar cada Linux). Sigue pendiente preguntar al profesorado por las VLAN.
+
+**Desfase:** No. DC02 queda promovido y comprobado en el día previsto (sesión 2); la importación en Proxmox de los dos DC pasa a la siguiente sesión (dentro del margen de D-05).
+
+**Siguiente:** (propuesta, opcional) `virtio-win-guest-tools` en los dos DC; apagar DC02 y después DC01; exportar cada uno en su OVA (OVF 2.0, sin MAC); importarlos en Proxmox **de uno en uno** (en `local` solo hay ≈ 24 GB libres) como 123 y 124; arrancar primero DC01 y volver a poner IP y DNS (la tarjeta cambia); comprobar `repadmin /replsummary` y `nslookup` en los dos (📸). **No volver a encender las copias de VirtualBox.**
+
+### 2026-11-19 · Antes y durante la sesión 2 (revisión de documentos) · Max
+
+**Hecho:**
+- **Revisión general de la documentación** frente a los criterios de evaluación del enunciado (estructura 20 %, rigor 25 %, justificación 20 %, diagramas 10 %, Git 15 %, bitácora 10 %). Hallazgos y propuestas en los puntos siguientes.
+- **Corrección de los reenviadores en todos los documentos** (ya decidida el 18/11 a las 17:35, pero no había llegado al paquete V12): los reenviadores reales de DC01 son **8.8.8.8 y 1.1.1.1**, no 1.1.1.1 y 9.9.9.9. Corregido en diseño, memoria técnica, lista de tareas, calendario, guía 07, README y en esta bitácora (entrada del 18/11). Scripts `04-configurar-dns.ps1` y `93-comprobar-dns.ps1` → **v1.2** (solo cambian los reenviadores por defecto y la cabecera; en el 04, los nombres de servicio `www`, `sftp` y `sqlag` dejan de estar pendientes).
+- Guía 07 → **v1.4**: actualizado lo confirmado desde el 17/11 (DNS, hora y GPO de DC01 hechos; Internet en el rango; DNS interceptado; `local-lvm` y VMID 123/124; nombres de servicio). Los apartados de importación de DC01 y promoción de DC02 **no se tocan** hasta que Oriol confirme (ver decisiones).
+- El paquete `CiberNova_G3_V12.zip` se subió a Drive (Oriol, 19/11). La V10 sigue sin estar en Drive (está fusionada en la V12).
+
+**Problemas y soluciones:**
+- Problema: los 3 commits de Claude en GitHub (`a944e29`, `b8f2515`, `13d9b30`) tienen como autor `Claude <noreply@anthropic.com>` y las líneas `Co-Authored-By`/`Claude-Session`; se hicieron antes de la regla de autoría del 18/11. → Solución: **no se reescribe el historial** (obligaría a forzar el push en el repositorio de Oriol y podría romper su copia). Queda registrado aquí y todos los commits nuevos se firman como `paeplook` (Max) u `OriolMartinASIX1A` (Oriol), sin esas líneas.
+- Problema: GitHub va por la V11 (17/11); la V12 y la V13 no están subidas, y el enunciado valora que la documentación sea "viva". → Propuesta: subir la V13 en cuanto Max dé permiso y, a partir de ahí, **un commit por sesión como mínimo** [PENDIENTE DE CONFIRMAR].
+- Problema: las carpetas `scripts/linux/`, `configs/linux/`, `configs/windows/` y `docs/diagramas/` están vacías; el trabajo Linux solo está descrito en la memoria. → Propuesta: versionar los ficheros reales (netplan de cada VM, `sources.list.d` de Microsoft, script de personalización de clones) [PENDIENTE DE CONFIRMAR].
+- Problema: no existen todavía tres entregables del enunciado: **diagramas**, **manual de operación y plan de recuperación** y **anexo de necesidades de IA** (DOC-01, DOC-04, DOC-06). → Propuesta: adelantar los diagramas y el anexo de IA a esta semana, porque no necesitan las máquinas [PENDIENTE DE CONFIRMAR].
+- Problema: las sesiones 3–5 (6 h) concentran casi todo el trabajo Linux (Pacemaker, `fence_pve`, AG con réplica de configuración y VIP, Apache/PHP-FPM, SFTP, Kea HA y Bareos). → Propuesta: preparar en casa los ficheros de configuración y versionarlos en `configs/linux/`, y dejar escrito en el diseño el orden de recorte del plan B [PENDIENTE DE CONFIRMAR].
+
+**Decisiones:**
+- **DC02 se instala y se promociona en VirtualBox** (Max, 19/11), en el mismo equipo que DC01 y con adaptador puente; después se exportan los dos DC y se importan en Proxmox (VMID 123 y 124). Alternativa descartada: promocionar en Proxmox, porque obliga a importar antes DC01 (D-05) y gasta tiempo de sesión. Condiciones: DC02 nunca clonado de DC01; las copias de VirtualBox no se vuelven a encender tras exportar (*USN rollback*); en Proxmox hay que volver a poner las IP y arrancar primero DC01. **Confirmado con Oriol el 19/11** (Max): guía 07 → **v1.5** (apartado 2 reescrito: DC02 en VirtualBox, exportación e importación de los dos DC) y sesión 2 del calendario actualizada.
+- Numeración de `docs/fase1/`: el 04 (manual de operación) y el 06 (anexo de IA) están reservados para esos entregables (README); no se renumera.
+
+**Desfase:** No (la revisión no cambia el calendario; el riesgo de carga de las sesiones 3–5 queda anotado).
+
+**Siguiente sesión:**
+- Oriol: DC02 en VirtualBox según la guía 07 v1.5 (apartado 2) y, con la replicación bien, exportar e importar los dos DC.
+- Max: lo previsto para la sesión 2 (personalizar BKP01, `mssql-conf setup`, Always On, BKP02).
+
+### 2026-11-18 · Fuera de horario (DC01 en VirtualBox) · Max y Oriol
+
+**Hecho:**
+- DC01 **sí tiene salida a Internet** (`ping 8.8.8.8` correcto). Corrige lo anotado el 16/11 ("la VM no tiene salida a Internet"): lo que falla es el DNS, no la salida.
+- Objetivo: que DC01 resuelva Internet por sí mismo con **127.0.0.1** como único DNS de la tarjeta y los **servidores raíz** (sin reenviadores). Configurado por la interfaz gráfica (pestañas Reenviadores, Sugerencias de raíz, Opciones avanzadas).
+- Pestaña Supervisión: consulta simple **Correcto**, consulta recursiva **Error**. `Resolve-DnsName www.google.com -Server 127.0.0.1` → SERVFAIL.
+
+**Diagnóstico (con capturas):**
+- `(Get-DnsServerRootHint).Count` = 13: los servidores raíz están configurados.
+- `Resolve-DnsName . -Type NS -Server 198.41.0.4` responde, pero con **TTL 33620** (un servidor raíz real responde siempre con 518400): contesta una caché intermedia.
+- `Resolve-DnsName www.google.com -Server 198.41.0.4` devuelve **las IP de Google**. Un servidor raíz real nunca resuelve un nombre `.com` (solo da la referencia a los servidores de `.com`).
+- **Conclusión: la red del aula intercepta todo el tráfico DNS (puerto 53)** y lo responde un resolutor propio, sea cual sea la IP de destino. Por eso funciona 8.8.8.8 en la tarjeta, no responde el .254 y falla la resolución desde la raíz (el interceptor no atiende las consultas iterativas que hace Windows).
+
+- Prueba descartada: desactivar EDNS (`Set-DnsServerEDns -EnableProbes $false`) **no cambia nada** (sigue SERVFAIL); se vuelve a dejar como estaba.
+
+**Decisión (Max, 18/11):** reenviadores **8.8.8.8 y 1.1.1.1** en el servidor DNS (**corrección de Max, 18/11, 17:35:** aquí se había anotado 1.1.1.1 y 9.9.9.9, pero los configurados de verdad son 8.8.8.8 y 1.1.1.1; dos proveedores distintos, Google y Cloudflare, para tener redundancia) de DC01 (configurados por la interfaz gráfica), nunca en la tarjeta, que se queda solo con 127.0.0.1. Se mantiene marcada "usar sugerencias de raíz si no hay reenviadores disponibles". Alternativas: resolución propia con los servidores raíz (preferida, imposible con la intercepción), DNS del aula (no responde), Google en la tarjeta (mala práctica en un DC). Pendiente preguntar al profesorado si el rango puede tener DNS sin interceptar. El script `84-deshacer-dns.ps1` **sí se ejecutó** después del script 04 (corrección del 18/11, 17:02: en un mensaje anterior se entendió lo contrario), así que el DNS se volvió a configurar desde cero **por la interfaz gráfica**: actualizaciones seguras, sin transferencias, zona inversa, registros de los Linux, nombres de servicio y envejecimiento. Scripts 04 y 93 pasan a la v1.1 (reenviadores nuevos; v1.2 el 19/11 con los reenviadores corregidos) y quedan como alternativa reproducible a la configuración gráfica.
+
+**Hecho por la tarde (por la interfaz gráfica, confirmado por Max):**
+- DNS completado y verificado: zona directa solo con actualizaciones seguras y sin transferencias, zona inversa 192.168.202.0/24, registros fijos `lnx01`, `lnx02`, `bkp01`, `bkp02` (con PTR), nombres de servicio `www`, `sftp` y `sqlag` → VIP 192.168.202.27 (sin PTR), envejecimiento y borrado 7 + 7 días, pestaña Supervisión y paso 8 (`nslookup` y `dcdiag /test:dns`) correctos.
+- **DC02 no se crea a mano en el DNS:** al promocionarlo registra él mismo sus registros; uno creado a mano tendría otro propietario y la actualización segura lo rechazaría.
+- Hora de DC01 con `hora.roa.es` y `es.pool.ntp.org` (`w32tm`).
+- OU sobrante `Cuentasespeciales` revisada.
+- Se aclara que los scripts 01–03 **no crean GPO** (quedaron aplazadas el 16/11). Se hacen **por script** para que queden versionadas: `05-gpo.ps1` v1.0 (4 GPO: `GPO_Dominio_CuentasServicio`, `GPO_Equipos_SinCuentasAdm`, `GPO_Dominio_Firewall`, `GPO_Servidores_Auditoria`) y `94-comprobar-gpo.ps1` v1.0 (comprobación e informes HTML). Probados con AD y GPO simulados (25 OK, segunda ejecución sin cambios). Confirmado que `G_Admin_Sistemas` solo tiene las 6 cuentas `adm.`. Las GPO no dependen de los Linux: se crean ya y las de Equipos y Servidores se aplicarán cuando entren las máquinas. Primera ejecución en DC01 (18/11, 17:18): creó las GPO de cuentas de servicio y de cuentas `adm.`, pero se paró en el firewall con *"No se encuentra ningún parámetro que coincida con el nombre del parámetro 'GPOSession'"*. **Causa:** `Get-NetFirewallRule` no admite `-GPOSession` (la simulación no lo detectó). **Solución:** `05-gpo.ps1` v1.1 busca la regla con `-PolicyStore`; se vuelve a ejecutar (es idempotente: lo ya creado no se repite). **Resultado:** segunda ejecución correcta; `gpupdate /force` y `94-comprobar-gpo.ps1` → **25 OK, 0 FALLO** (las 4 GPO creadas y vinculadas; DC01 aplica las de cuentas de servicio y firewall, con los 3 perfiles activados). Informes HTML en `C:\CiberNova\informes-gpo\`. Las GPO de Equipos y Servidores se comprobarán al unir CLI01/CLI02 y FS01/FS02.
+- **Paquete V12:** fusión de V9 y V10 (preparadas en otra conversación sobre la V8) con la V11 de GitHub (`13d9b30`) más lo hecho el 18/11. Conflictos resueltos a mano en bitácora, calendario, diseño, guía del hipervisor, memoria técnica, inventario, VERSION y README; la lista de tareas se actualiza con lo confirmado en la sesión 1 (host, LNX01 importada, WEB01 borrada, clones, SQL Server instalado).
+
+**Desfase:** No.
+
+### 2026-11-17 (tarde) · Fuera de horario (preparación en otra conversación) · Max y Oriol
+
+**Hecho / decidido:**
+- **Todas las máquinas se unen al dominio `cibernova.local`** (decidido por Max): DC02 como segundo DC; FS01, FS02 y clientes con `Add-Computer`; Linux con realmd + SSSD. Alternativas y justificación en `claude/decisiones-fase1.md` y en la guía del dominio.
+- **Un solo dominio** con dos DC (no dos dominios): el Anexo I pide una única plantilla y estructura de carpetas para las tres sedes; la redundancia la dan los dos DC; un segundo dominio añadiría confianzas, grupos duplicados y 4 DC sin aislar de verdad (la frontera de seguridad de AD es el bosque).
+- **Configuración del DNS de DC01** preparada como script: `04-configurar-dns.ps1` v1.0 y `93-comprobar-dns.ps1` v1.0 (memoria técnica, apartado 3.3): zona solo con actualizaciones seguras y sin transferencias, zona inversa 192.168.202.0/24, reenviador, registros fijos de los Linux, nombres de servicio hacia la VIP (opcional) y limpieza de registros.
+
+- **Error de planificación detectado (DNS):** se había dado DC01 por completo sin comprobar la configuración del DNS contra la lista de servicios del enunciado (el DNS es un servicio obligatorio). Causa: la zona y el reenviador que crea la promoción se tomaron como servicio terminado. Medida: script 04 y **lista de tareas** (`lista-tareas-fase1.md`) con todos los requisitos del enunciado y del Anexo I; solo se marca como hecho lo confirmado con comprobación o captura.
+- **Revisión de todos los documentos del proyecto** (enunciado, Anexo I, presentación) y creación de la lista de tareas. Requisitos que no estaban recogidos como tarea: carpetas personales creadas por el script de alta, auditoría de acceso (P-11, P-39), vaciado de Intercambio (valorable), uso real de `svc_web`/`svc_bbdd`, cuentas `adm.` sin inicio de sesión en equipos de usuarios, copia de las VMs (norma 2), contenido web y datos SFTP iguales en los dos nodos, diagramas del diseño, anexo de necesidades de IA y manual de operación.
+- **Cierre de GitHub el 4/12:** desfase D-04 y calendario replanificado.
+- **Script 04 ejecutado en DC01** (confirmado por Max). Se decide **deshacer la configuración y empezar de cero** el DNS: nuevo script `84-deshacer-dns.ps1` v1.0 (quita solo lo añadido: zona inversa, registros fijos, limpieza y reenviadores; exporta antes las zonas y no toca las zonas ni los registros del dominio). Alternativas descartadas: borrar y recrear las zonas del dominio (hay que volver a registrar el DC) y desinstalar el rol DNS (con un solo DC el dominio deja de funcionar).
+
+**Pendiente:** ejecutar el script 04 en DC01 y hacer capturas (`..._dc01_script04-dns.png`, `..._dc01_comprobar-dns.png`); confirmar nombres de servicio (`www`, `sftp`, `sqlag`); anotar qué se completó en la sesión 1.
+
+**Desfase:** Sí, D-04 (cierre de GitHub).
 
 ### 2026-11-17 · Sesión 1 (15:00–17:00) y tarde con el servidor encendido (permiso del profesor) · Max
 
