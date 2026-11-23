@@ -12,7 +12,7 @@ Diseño, implantación, IA aplicada y auditoría de la infraestructura virtualiz
 | 2 – IA aplicada | 2.º | Pendiente |
 | 3 – Seguridad y auditoría | 3.º | Pendiente |
 
-**Versión:** V16 (19/11/2026) · historial en [`VERSION.md`](VERSION.md)
+**Versión:** V17 (23/11/2026) · historial en [`VERSION.md`](VERSION.md)
 
 ## Estructura del repositorio
 

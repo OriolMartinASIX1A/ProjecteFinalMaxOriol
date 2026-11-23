@@ -1,7 +1,7 @@
 # Lista de tareas de la Fase 1 (control de requisitos)
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 1.5 · 19/11/2026 (sesión 2 Linux: SQL Server configurado en LNX01, LNX02 y BKP01; BKP02 creada) · v1.4 · 19/11/2026 (DC02 promovido y comprobado en VirtualBox; reenviadores de DC02) · v1.3 · 19/11/2026 (reenviadores corregidos, revisión general de documentos, DC02 en VirtualBox)
+**Versión:** 1.6 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing: HV-07, HA-01 y HA-02 ✅) · v1.5 · 19/11/2026 (sesión 2 Linux: SQL Server configurado en LNX01, LNX02 y BKP01; BKP02 creada) · v1.4 · 19/11/2026 (DC02 promovido y comprobado en VirtualBox; reenviadores de DC02) · v1.3 · 19/11/2026 (reenviadores corregidos, revisión general de documentos, DC02 en VirtualBox)
 
 > **Para qué sirve:** es la lista de todo lo que pide la práctica y en qué punto está. **Regla:** solo se marca ✅ lo que Max u Oriol han confirmado que está hecho (con su captura o comprobación). Todo lo demás está pendiente. Antes de dar por terminado un servicio o una máquina, se revisa esta lista.
 >
@@ -40,7 +40,7 @@
 | HV-04 | NIC cableadas (`ip -br link`); si hay dos, bond active-backup | Max | ❓ | 17/11: solo `nic0` con cable (punto único de fallo aceptado). Preguntar si se puede cablear otra (Q-06). `vmbr1` sin uso conocido |
 | HV-05 | Máscara /22 en `vmbr0` | Max | ✅ | 17/11: `vmbr0` = 192.168.202.3/22 |
 | HV-06 | Orden de arranque de las VMs (DC → BKP → FS → LNX → clientes) y arranque automático | Ambos | ⏳ | `qm set <id> --startup order=…` |
-| HV-07 | Usuario de Proxmox con permisos mínimos para `fence_pve` | Max | ⏳ | Sin contraseña en documentos |
+| HV-07 | Usuario de Proxmox con permisos mínimos para `fence_pve` | Max | ✅ | 23/11: `fence@pve` con rol `FenceCiberNova` (`VM.PowerMgmt` + `VM.Audit`) solo sobre `/vms/128`–`130`. 📸 `proxmox_usuario-fence` |
 | HV-08 | Rendimiento de Windows en Proxmox (VirtIO, agente QEMU) | Oriol | ⏳ | Propuesta: drivers VirtIO antes de exportar el OVA |
 | HV-09 | Copia de las VMs (norma 2 del enunciado: "copias actualizadas de su infraestructura") | Max | ❓ | Propuesta: `vzdump` de las VMs a BKP02 o a disco externo antes de la Fase 3 [PENDIENTE DE CONFIRMAR] |
 
@@ -155,8 +155,8 @@
 
 | ID | Tarea | Estado | Notas |
 |---|---|---|---|
-| HA-01 | Clúster `cibernova-g3` (LNX01, LNX02) en unicast, qdevice en BKP01 | ⏳ | |
-| HA-02 | Fencing `fence_pve` contra Proxmox | ⏳ | HV-07 |
+| HA-01 | Clúster `cibernova-g3` de **3 nodos (LNX01, LNX02, BKP01)** en unicast (knet), sin qdevice | ✅ | 23/11: 3 nodos `Online`, `Quorate: Yes` (3 votos, quórum 2). Decisión del 23/11: BKP01 es nodo porque aloja la réplica de solo configuración. 📸 `pcs-status-3-nodos`, `quorum` |
+| HA-02 | Fencing `fence_pve` contra Proxmox | ✅ | 23/11: recurso `fence-proxmox` con `pcmk_host_map`. Prueba real: `pcs stonith fence lnx02` → reinicio correcto, quórum mantenido. 📸 `fence-lnx02-*` |
 | HA-03 | VIP .27 junto al primario del AG | ⏳ | |
 
 ## 11. Web (Max)

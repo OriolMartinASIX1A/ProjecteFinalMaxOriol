@@ -1,7 +1,7 @@
 # Memoria técnica de la infraestructura desplegada – Fase 1
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 0.9 · 19/11/2026 (sesión 2 Linux: SQL Server configurado, BKP01 y BKP02, apartado 2.3.6) · v0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
+**Versión:** 0.10 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing, apartado 2.3.7) · v0.9 · 19/11/2026 (sesión 2 Linux: SQL Server configurado, BKP01 y BKP02, apartado 2.3.6) · v0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
 
 > Documento vivo: se amplía al terminar cada servicio. Lo marcado con **[PENDIENTE DE CONFIRMAR]** hay que verificarlo.
 
@@ -294,6 +294,66 @@ qm start 131
 
 **Capturas** (prefijo `2026-11-19_sesion02_`): `lnx01_mssql-ediciones`; `lnx01/lnx02/bkp01_mssql-status` y `_mssql-comprobacion`; `proxmox_snapshot-base-limpia`, `proxmox_clon-bkp02`, `proxmox_qm-list-bkp02`; `bkp02_personalizado`, `bkp02_sin-sqlserver`; `bkp02_kernel` y `lnx01/lnx02/bkp01_kernel-mssql`. Captura de BKP01 del 18/11: `2026-11-18_sesion01_bkp01_personalizado`.
 
+### 2.3.7 Clúster Pacemaker + Corosync y fencing (23/11, fuera de horario)
+
+**Decisión: 3 nodos (LNX01, LNX02, BKP01), sin qdevice.**
+
+| Alternativa | Ventaja | Inconveniente | Decisión |
+|---|---|---|---|
+| **3 nodos Pacemaker** (BKP01 nodo y réplica de solo configuración) | Esquema documentado por Microsoft para el AG en Linux; BKP01 da el tercer voto | BKP01 necesita restricciones para no alojar la VIP ni Apache | **Elegida** |
+| 2 nodos + qdevice en BKP01 (lo que decía el diseño) | — | No es posible: la réplica de solo configuración tiene que estar en un nodo del clúster, y el qdevice fuera de él | Descartada |
+| 2 nodos + qdevice en BKP02 | Quórum sin tocar BKP01 | BKP01 fuera del clúster: la réplica de solo configuración pierde sentido; fuera del esquema oficial | Descartada |
+
+**Preparación (en los tres nodos):**
+
+```bash
+# Nombre del nodo -> IP real (Ubuntu pone "127.0.1.1 <nombre>", que haria escuchar a Corosync en el bucle local)
+sudo sed -i '/127.0.1.1/d' /etc/hosts && printf '192.168.202.28 lnx01\n192.168.202.29 lnx02\n192.168.202.30 bkp01\n192.168.202.31 bkp02\n' | sudo tee -a /etc/hosts
+getent hosts lnx01 lnx02 bkp01 bkp02 && timedatectl
+sudo apt update && sudo apt install -y pacemaker pcs fence-agents-pve
+ls /usr/sbin/fence_pve /usr/lib/ocf/resource.d/heartbeat/IPaddr2 && systemctl is-active pcsd
+sudo passwd hacluster            # misma contraseña en los tres; no se guarda en ningun documento
+sudo pcs cluster destroy         # borra el cluster de ejemplo "debian" que crea Ubuntu
+```
+
+**Creación (solo desde LNX01):**
+
+```bash
+sudo pcs host auth lnx01 lnx02 bkp01 -u hacluster
+sudo pcs cluster setup cibernova-g3 lnx01 addr=192.168.202.28 lnx02 addr=192.168.202.29 bkp01 addr=192.168.202.30
+sudo pcs cluster start --all && sudo pcs cluster enable --all
+sudo pcs status
+sudo corosync-quorumtool -s
+```
+
+Transporte **knet** (por defecto): unicast y cifrado con las claves que reparte `pcs`, para no interferir con otros grupos de la red compartida del aula. Resultado: 3 nodos `Online`, 3 votos, quórum 2, `Quorate: Yes` (el clúster sigue si cae cualquier nodo; un nodo aislado sabe que es minoría y para sus servicios, lo que evita el *split-brain*).
+
+**Fencing con `fence_pve`:**
+
+```bash
+# Shell de Proxmox (PROC): usuario con minimo privilegio
+pveum user add fence@pve --comment "Fencing del cluster cibernova-g3"
+pveum passwd fence@pve
+pveum role add FenceCiberNova --privs "VM.PowerMgmt VM.Audit"
+pveum acl modify /vms/128 --users fence@pve --roles FenceCiberNova && pveum acl modify /vms/129 --users fence@pve --roles FenceCiberNova && pveum acl modify /vms/130 --users fence@pve --roles FenceCiberNova
+pveum user permissions fence@pve
+```
+
+```bash
+# LNX01 (con un espacio delante para que no quede en el historial)
+ sudo fence_pve --ip=192.168.202.3 --username=fence@pve --password='...' --pve-node=PROC --plug=129 --action=status --ssl-insecure
+ sudo pcs stonith create fence-proxmox fence_pve ip=192.168.202.3 username=fence@pve password='...' pve_node=PROC vmtype=qemu ssl_insecure=1 pcmk_host_map="lnx01:128;lnx02:129;bkp01:130"
+sudo pcs stonith fence lnx02     # prueba real
+sudo pcs status && sudo pcs stonith history
+```
+
+- `pcmk_host_map` traduce el nombre del nodo al VMID de Proxmox (regla 100 + octeto).
+- `vmtype=qemu` es obligatorio en `pcs` (sin él: `required stonith option 'vmtype' is missing`).
+- **Prueba:** `pcs stonith fence lnx02` → reinicio por la API de Proxmox, quórum mantenido con LNX01 y BKP01, LNX02 de vuelta en menos de 2 minutos (`reboot of lnx02 successful: delegate=bkp01, origin=lnx01`).
+- **Riesgos aceptados:** la contraseña de `fence@pve` queda en el CIB de Pacemaker (legible por `root`/`hacluster`; compensado por el mínimo privilegio) y `ssl_insecure=1` por el certificado autofirmado de Proxmox (Fase 3: instalar la CA de Proxmox y quitarlo).
+
+**Capturas** (prefijo `2026-11-23_sesion03_`): `lnx01_hosts-antes`, `*_hosts-*`, `lnx01_hora`, `bkp01_ping-nodos`, `*_paquetes-pacemaker`, `*_cluster-debian`, `*_cluster-destroy`, `*_sin-cluster`, `lnx01_pcs-host-auth`, `lnx01_pcs-cluster-setup`, `lnx01_pcs-cluster-start`, `lnx01_pcs-status-3-nodos`, `lnx01_quorum`, `proxmox_usuario-fence`, `lnx01_fence-pve-status`, `lnx01_stonith-error-vmtype`, `lnx01_pcs-status-stonith`, `lnx01_fence-lnx02-offline`, `lnx01_fence-lnx02-vuelve-historial`.
+
 ### 2.4 Precauciones con los controladores de dominio
 
 - **DC02 no se puede crear clonando DC01.** Un DC promovido no se clona nunca. DC02 se crea con una instalación limpia de Windows Server 2025 (o clonando una plantilla **sin dominio** a la que se haya pasado `sysprep /generalize /oobe /shutdown`), y después se promueve como DC adicional del dominio `cibernova.local`.
@@ -537,7 +597,8 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 - [x] SQL Server 2025 instalado en LNX01 (sin configurar). LNX02 clonada y personalizada (17/11).
 - [x] Personalizar BKP01 (.30, 18/11) y crear BKP02 (131, .31, 19/11, desde `base-limpia`).
 - [x] `mssql-conf setup` en LNX01, LNX02 (Enterprise Developer) y BKP01 (Express); `hadr.hadrenabled` activado en las tres y Agente en LNX01/LNX02 (19/11).
-- [ ] Pacemaker + Corosync (`cibernova-g3`), qdevice en BKP01 y `fence_pve` (sesión 3).
+- [x] Pacemaker + Corosync (`cibernova-g3`) de 3 nodos y fencing con `fence_pve`, probado (23/11, apartado 2.3.7).
+- [ ] AG de SQL Server (certificados, *endpoints*, réplica de solo configuración en BKP01), recursos de Pacemaker y VIP .27.
 - [ ] **Todo subido a GitHub antes del 4/12/2026** (cierre del repositorio).
 - [x] OU Equipos y Servidores: script 01 v2.1 ejecutado en DC01, 23 OU (16/11).
 - [x] Ejecutar `03-cuentas-especiales.ps1` en DC01: 26 comprobaciones OK (16/11).

@@ -96,6 +96,39 @@ Registro continuo de decisiones, problemas, soluciones y desfases. Una entrada p
 
 ## Entradas
 
+### 2026-11-23 · Fuera de horario (clúster Pacemaker) · Max
+
+Servidor encendido fuera de horario con permiso del profesor (confirmado por Max). Se adelanta todo lo previsto para Max en la sesión 3 (24/11).
+
+**Hecho:**
+- **`/etc/hosts` en LNX01, LNX02 y BKP01:** quitada la línea `127.0.1.1 <nombre>` y añadidas las IP reales de los cuatro Linux (.28–.31). `getent hosts` resuelve cada nombre a su IP y `ping` por nombre entre nodos funciona (0 % de pérdida, < 1 ms). Hora sincronizada en los tres (`timedatectl`: `Europe/Madrid`, `synchronized: yes`).
+- **Paquetes** en los tres nodos: `pacemaker` (2.1.6), `pcs` y `fence-agents-pve` (en Ubuntu 24.04 `fence_pve` va en un paquete propio). `pcsd` activo. Contraseña de `hacluster` puesta en los tres (no se guarda en ningún documento).
+- **Clúster de ejemplo `debian` borrado** en los tres (`pcs cluster destroy`): Ubuntu crea y arranca uno de un nodo al instalar `pacemaker`.
+- **Clúster `cibernova-g3` de 3 nodos:** `pcs host auth lnx01 lnx02 bkp01 -u hacluster` → los tres `Authorized`; `pcs cluster setup cibernova-g3 lnx01 addr=192.168.202.28 lnx02 addr=192.168.202.29 bkp01 addr=192.168.202.30` (transporte knet, unicast y cifrado; claves `corosync authkey` y `pacemaker authkey` repartidas); `pcs cluster start --all && pcs cluster enable --all`.
+- **Comprobación:** `pcs status` → 3 nodos `Online`, `partition with quorum`. `corosync-quorumtool -s` → `Expected votes: 3`, `Total votes: 3`, `Quorum: 2`, `Quorate: Yes`.
+- **Usuario de Proxmox para el fencing** (shell de PROC): `fence@pve` con el rol propio `FenceCiberNova` (`VM.PowerMgmt` + `VM.Audit`) **solo** sobre `/vms/128`, `/vms/129` y `/vms/130` (`pveum user permissions fence@pve`).
+- **Prueba manual:** `fence_pve ... --plug=129 --action=status --ssl-insecure` → `Status: ON` (comando con espacio delante para que la contraseña no quede en el historial).
+- **Recurso STONITH:** `pcs stonith create fence-proxmox fence_pve ip=192.168.202.3 username=fence@pve password=… pve_node=PROC vmtype=qemu ssl_insecure=1 pcmk_host_map="lnx01:128;lnx02:129;bkp01:130"` → `Started bkp01`; desaparece el aviso `No stonith devices`.
+- **Prueba real de fencing (prueba de caída):** `pcs stonith fence lnx02` → `Node: lnx02 fenced`; LNX02 `OFFLINE` y el clúster **sigue con quórum** con LNX01 y BKP01 (el coordinador pasa de lnx02 a bkp01). LNX02 vuelve sola en menos de 2 minutos; `pcs stonith history` → `reboot of lnx02 successful: delegate=bkp01, origin=lnx01`.
+- 31 capturas (`2026-11-23_sesion03_*`, en `capturas-sesion03.zip`).
+
+**Problemas y soluciones:**
+- Problema: la línea `127.0.1.1 lnx01` en `/etc/hosts` (la pone Ubuntu al instalar). → Con ella, el nombre del nodo apunta a la interfaz de bucle local y Corosync puede escuchar en 127.0.1.1. Solución: borrarla y poner las IP reales.
+- Problema: al instalar `pacemaker`, Ubuntu crea y arranca un clúster `debian` de un nodo en cada máquina. → Solución: `pcs cluster destroy` en los tres antes de crear `cibernova-g3`.
+- Problema: `pveum user add` no pide contraseña y `fence@pve` no podía iniciar sesión. → Solución: `pveum passwd fence@pve`.
+- Problema: `pcs stonith create` → `required stonith option 'vmtype' is missing`. → Solución: añadir `vmtype=qemu` (las máquinas son VM, no contenedores LXC). Se descartó `--force` (saltarse la comprobación).
+
+**Decisiones:**
+- **Clúster de 3 nodos (LNX01, LNX02, BKP01) sin qdevice** (Max). El diseño ponía en BKP01 a la vez la réplica de solo configuración del AG y el qdevice, y eso no encaja: según Microsoft, la réplica de solo configuración tiene que estar en un **nodo del clúster Pacemaker** (el agente del AG corre en los tres), y un qdevice tiene que estar **fuera** del clúster. Con BKP01 como nodo ya hay 3 votos. Alternativas: (a) 2 nodos + qdevice en BKP02 → descartada: BKP01 quedaría fuera del clúster y la réplica de solo configuración perdería sentido; fuera del esquema oficial; (b) **3 nodos** → elegida (esquema documentado por Microsoft). BKP01 nunca será primaria (Express, solo configuración); la VIP y Apache llevarán restricciones para no ir a BKP01.
+- **`fence@pve` con mínimo privilegio** (Max): rol propio con solo `VM.PowerMgmt` y `VM.Audit` sobre las tres VMs del clúster. Alternativa descartada: `root@pam` (con su contraseña se podría borrar todo el servidor).
+- **Un solo dispositivo STONITH** para los tres nodos (todos se apagan por el mismo Proxmox), con `pcmk_host_map` para traducir nombre de nodo → VMID.
+- **Riesgos aceptados:** (1) la contraseña de `fence@pve` queda en la configuración de Pacemaker (CIB), legible por `root` y `hacluster` en los nodos; lo compensa el mínimo privilegio; (2) `ssl_insecure=1` porque el certificado de Proxmox es autofirmado (propuesta para la Fase 3: instalar la CA de Proxmox en los nodos y quitarlo).
+
+**Desfase:** No (adelanto). Lo de la sesión 3 para Max está hecho el 23/11. La sesión 3 (24/11) puede empezar con el AG de SQL Server, previsto para la sesión 4.
+
+**Siguiente:** AG de SQL Server: certificados y *endpoints* en los tres nodos, AG `CLUSTER_TYPE = EXTERNAL` (LNX01 primaria, LNX02 secundaria síncrona, BKP01 solo configuración), login de Pacemaker, recursos del AG y VIP .27 con restricciones (nunca en BKP01).
+
+
 ### 2026-11-19 · Sesión 2 (Linux: SQL Server y BKP02) · Max
 
 **Hecho:**

@@ -2,7 +2,7 @@
 
 **Proyecto:** Plan de modernización tecnológica de CiberNova Solutions
 **Equipo:** Grupo 3 – Max (Linux) · Oriol (Windows)
-**Versión:** 0.8 (borrador) · 19/11/2026 · BKP02 creada desde la instantánea `base-limpia` (sin SQL Server) · v0.7 (19/11): Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
+**Versión:** 0.9 (borrador) · 23/11/2026 · Clúster Pacemaker de 3 nodos sin qdevice; fencing con usuario de Proxmox de mínimo privilegio · v0.8 (19/11): BKP02 creada desde la instantánea `base-limpia` (sin SQL Server) · v0.7 (19/11): Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
 
 > Este documento recoge el análisis de necesidades, las decisiones técnicas con sus alternativas y el diseño de la infraestructura de la Fase 1. Es un documento vivo: cada cambio queda registrado en el historial de Git y, si supone un desfase, en la [bitácora](../gestion/bitacora.md).
 
@@ -133,7 +133,9 @@ Instalación: sistema de archivos ext4 sobre el RAID 10 por hardware (`/dev/sda`
 
 - Gestiona en un único sitio la VIP, Apache y el AG de SQL Server, con restricciones de colocación (la VIP va siempre con la réplica primaria).
 - Se descarta keepalived porque no sabe gestionar el AG de SQL Server; usar ambos duplicaría herramientas.
-- Clúster `cibernova-g3`, comunicación unicast (knet) para no interferir con otros grupos del aula. Quórum con qdevice en BKP01.
+- Clúster `cibernova-g3`, comunicación unicast (knet, cifrada) para no interferir con otros grupos del aula.
+- **Quórum: 3 nodos (LNX01, LNX02, BKP01), sin qdevice** (decidido el 23/11). La réplica de solo configuración del AG tiene que estar en un nodo del clúster (esquema de Microsoft para el AG en Linux), así que BKP01 es el tercer nodo y aporta el tercer voto. Un qdevice tendría que estar fuera del clúster y sería redundante. Alternativa descartada: 2 nodos + qdevice en BKP02 (BKP01 fuera del clúster, réplica de solo configuración sin sentido). BKP01 nunca aloja la réplica primaria (Express); la VIP y Apache llevan restricciones para no ir a BKP01.
+- **Fencing:** `fence_pve` contra la API de Proxmox con el usuario `fence@pve` (rol propio con solo `VM.PowerMgmt` y `VM.Audit` sobre las tres VMs del clúster).
 
 ### 3.10 Copias de seguridad: **Bareos**
 
@@ -188,7 +190,7 @@ flowchart TB
         VIP(("VIP .27<br/>web · SFTP · SQL"))
         LNX01["LNX01 .28<br/>Apache · SFTP<br/>SQL AG · Kea"]
         LNX02["LNX02 .29<br/>Apache · SFTP<br/>SQL AG · Kea"]
-        BKP01["BKP01 .30<br/>Bareos Dir+SD<br/>SQL config-only · qdevice"]
+        BKP01["BKP01 .30<br/>Bareos Dir+SD<br/>SQL config-only · nodo Pacemaker"]
         BKP02["BKP02 .31<br/>Bareos SD"]
     end
 
@@ -238,7 +240,7 @@ Todos los servidores y clientes usan como DNS **.23 y .24** (los DC). Solo los D
 | 192.168.202.27 | www / sftp / sqlag.cibernova.local | **VIP** (Pacemaker): web, SFTP, listener del AG |
 | 192.168.202.28 | lnx01.cibernova.local | Apache, SFTP, SQL Server, Kea |
 | 192.168.202.29 | lnx02.cibernova.local | Apache, SFTP, SQL Server, Kea |
-| 192.168.202.30 | bkp01.cibernova.local | Bareos Director + SD, SQL config-only, qdevice |
+| 192.168.202.30 | bkp01.cibernova.local | Bareos Director + SD, SQL config-only, tercer nodo Pacemaker |
 | 192.168.202.31 | bkp02.cibernova.local | Bareos SD secundario |
 | 192.168.202.32 | cli01.cibernova.local | Cliente Windows 11 (reserva DHCP) |
 | 192.168.202.33 | cli02.cibernova.local | Cliente Windows 11 (reserva DHCP) |
@@ -406,6 +408,7 @@ Los servidores solo pueden estar encendidos en horario de proyecto y el centro p
 | **El DNS del aula (192.168.200.254) no responde** a las VMs del rango .23–.33 (comprobado el 17/11), aunque sí hay salida a Internet | **Ocurrido** | Medio | Linux con DNS públicos (8.8.8.8, 1.1.1.1) mientras no estén los DC; después, clientes y servidores → .23/.24 y reenviadores de los DC → **8.8.8.8 y 1.1.1.1** (decidido el 18/11: además, la red del aula **intercepta el DNS**, así que los DC no pueden resolver solos desde los servidores raíz) |
 | Clones de VM con identificadores repetidos (`machine-id`, claves SSH, IP) | Media | Alto | Personalizar cada clon antes de conectarlo con el original encendido (memoria técnica 2.3.4) |
 | DC duplicado o restaurado desde una copia antigua tras la importación | Baja | Muy alto | Importar cada DC una sola vez y apagar definitivamente la copia de VirtualBox |
+| Contraseña de `fence@pve` guardada en la configuración de Pacemaker (CIB) y `ssl_insecure=1` (certificado autofirmado de Proxmox) | Baja | Medio | Riesgo aceptado: `fence@pve` solo puede encender y apagar las VMs 128–130. Fase 3: instalar la CA de Proxmox en los nodos y quitar `ssl_insecure` |
 
 ---
 
