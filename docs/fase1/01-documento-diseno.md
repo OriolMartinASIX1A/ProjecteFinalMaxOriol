@@ -2,7 +2,7 @@
 
 **Proyecto:** Plan de modernización tecnológica de CiberNova Solutions
 **Equipo:** Grupo 3 – Max (Linux) · Oriol (Windows)
-**Versión:** 0.10 (borrador) · 23/11/2026 · FS01: disco de datos de 150 GB justificado, recursos reales, cuatro recursos compartidos y permisos de recurso frente a NTFS · v0.9 (23/11): Clúster Pacemaker de 3 nodos sin qdevice; fencing con usuario de Proxmox de mínimo privilegio · v0.8 (19/11): BKP02 creada desde la instantánea `base-limpia` (sin SQL Server) · v0.7 (19/11): Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
+**Versión:** 0.11 (borrador) · 24/11/2026 · AG `sqlag_cibernova`: autenticación por certificado, *endpoint* `WITNESS` en BKP01, `pacemakerLogin` de mínimo privilegio, VIP .27 con colocación y orden · v0.10 (23/11) · FS01: disco de datos de 150 GB justificado, recursos reales, cuatro recursos compartidos y permisos de recurso frente a NTFS · v0.9 (23/11): Clúster Pacemaker de 3 nodos sin qdevice; fencing con usuario de Proxmox de mínimo privilegio · v0.8 (19/11): BKP02 creada desde la instantánea `base-limpia` (sin SQL Server) · v0.7 (19/11): Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
 
 > Este documento recoge el análisis de necesidades, las decisiones técnicas con sus alternativas y el diseño de la infraestructura de la Fase 1. Es un documento vivo: cada cambio queda registrado en el historial de Git y, si supone un desfase, en la [bitácora](../gestion/bitacora.md).
 
@@ -106,6 +106,7 @@ Instalación: sistema de archivos ext4 sobre el RAID 10 por hardware (`/dev/sda`
 
 - **Licencia:** Enterprise Developer es gratuita y tiene toda la funcionalidad de Enterprise, pero **solo para desarrollo y pruebas**. Se justifica por tratarse de un laboratorio; en producción CiberNova adquiriría licencias Enterprise.
 - **Alta disponibilidad:** Availability Group con commit síncrono entre LNX01 y LNX02, conmutación automática con **Pacemaker + Corosync**, **réplica de solo configuración** (SQL Server Express) en BKP01 como tercer voto, y **fencing con `fence_pve`** contra la API de Proxmox.
+- **Implementación (24/11):** AG **`sqlag_cibernova`** (`CLUSTER_TYPE = EXTERNAL`; nombre distinto del listener `sqlag` para no confundir el grupo con la dirección de conexión). Las réplicas se autentican con un **certificado** (`dbm_certificate`, caduca el 31/12/2028) y no con cuentas del dominio, así el AG no depende de AD. *Endpoints* en el puerto **5022** con cifrado AES; en BKP01 el *endpoint* es `WITNESS` (único rol válido en Express). Pacemaker entra en SQL Server con **`pacemakerLogin`**, con permisos solo sobre el AG (`ALTER`, `CONTROL`, `VIEW DEFINITION`) y `VIEW SERVER STATE`, no con `sa`. Recurso `ag_cluster` (`ocf:mssql:ag`, promocionable) y VIP .27 (`IPaddr2`) con colocación `INFINITY` con la réplica principal y orden *promover → arrancar VIP*.
 
 ### 3.6 Web: **Apache 2.4 (mpm_event + PHP-FPM)**
 
@@ -413,6 +414,7 @@ Los servidores solo pueden estar encendidos en horario de proyecto y el centro p
 | **El DNS del aula (192.168.200.254) no responde** a las VMs del rango .23–.33 (comprobado el 17/11), aunque sí hay salida a Internet | **Ocurrido** | Medio | Linux con DNS públicos (8.8.8.8, 1.1.1.1) mientras no estén los DC; después, clientes y servidores → .23/.24 y reenviadores de los DC → **8.8.8.8 y 1.1.1.1** (decidido el 18/11: además, la red del aula **intercepta el DNS**, así que los DC no pueden resolver solos desde los servidores raíz) |
 | Clones de VM con identificadores repetidos (`machine-id`, claves SSH, IP) | Media | Alto | Personalizar cada clon antes de conectarlo con el original encendido (memoria técnica 2.3.4) |
 | DC duplicado o restaurado desde una copia antigua tras la importación | Baja | Muy alto | Importar cada DC una sola vez y apagar definitivamente la copia de VirtualBox |
+| Contraseña de `pacemakerLogin` en texto plano en `/var/opt/mssql/secrets/passwd` (lo exige el agente de Microsoft) | Baja | Medio | Riesgo aceptado: fichero `root` con permisos `400` en cada nodo; el login solo tiene permisos sobre el AG |
 | Contraseña de `fence@pve` guardada en la configuración de Pacemaker (CIB) y `ssl_insecure=1` (certificado autofirmado de Proxmox) | Baja | Medio | Riesgo aceptado: `fence@pve` solo puede encender y apagar las VMs 128–130. Fase 3: instalar la CA de Proxmox en los nodos y quitar `ssl_insecure` |
 
 ---

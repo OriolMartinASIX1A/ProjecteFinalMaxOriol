@@ -1,7 +1,7 @@
 # Inventario de servicios, usuarios y grupos – Fase 1
 
 **Grupo 3:** Max · Oriol
-**Versión:** 0.12 (parcial) · 23/11/2026 (FS01 en VirtualBox: dominio, roles, espacio de nombres y recursos compartidos) · v0.11 · 23/11/2026 (clúster Pacemaker `cibernova-g3` de 3 nodos con fencing) · v0.10 · 19/11/2026 (SQL Server configurado; BKP01 y BKP02 creadas) · v0.9 · 19/11/2026 (DC02 promovido y replicando) · v0.8 · 19/11/2026 (estado de AD/DNS y DC02) · v0.7 · 18/11/2026 (DNS y GPO de DC01)
+**Versión:** 0.13 (parcial) · 24/11/2026 (AG `sqlag_cibernova` y VIP .27 en Pacemaker) · v0.12 · 23/11/2026 (FS01 en VirtualBox: dominio, roles, espacio de nombres y recursos compartidos) · v0.11 · 23/11/2026 (clúster Pacemaker `cibernova-g3` de 3 nodos con fencing) · v0.10 · 19/11/2026 (SQL Server configurado; BKP01 y BKP02 creadas) · v0.9 · 19/11/2026 (DC02 promovido y replicando) · v0.8 · 19/11/2026 (estado de AD/DNS y DC02) · v0.7 · 18/11/2026 (DNS y GPO de DC01)
 
 > Entregable obligatorio de la Fase 1 (Anexo I, apartado 12). Esta versión recoge lo que ya está creado en el dominio. Faltan la matriz de permisos P-01 a P-44, los grupos `DL_`, el diagrama de anidamiento y las evidencias de las pruebas.
 
@@ -14,7 +14,7 @@
 | Virtualización | Proxmox VE | 192.168.202.3 | Funcionando |
 | AD DS + DNS | DC01 / DC02 | .23 / .24 | DC01 funcionando en VirtualBox (pendiente de importar). DNS configurado y verificado (18/11; reenviadores 8.8.8.8 y 1.1.1.1) y GPO de seguridad (18/11) · **DC02 promovido el 19/11 en VirtualBox** (DNS + catálogo global), replicando con DC01; reenviadores 8.8.8.8 y 1.1.1.1 y DNS cruzado. Pendiente: importar los dos DC en Proxmox |
 | Ficheros (DFS, FSRM) | FS01 / FS02 | .25 / .26 | **FS01 en VirtualBox (23/11):** unida al dominio (OU Servidores), D: `Datos` de 150 GB, roles DFS-N, DFS-R y FSRM, espacio de nombres `\\cibernova.local\empresa` (modo 2008, ABE) y recursos `Personales$`, `Departamentos$`, `Proyectos$`, `Comun$` (ABE; *Usuarios autentificados* en el recurso, permisos reales en NTFS pendientes). FS02 sin crear |
-| Web + SFTP + SQL Server (VIP) | LNX01 / LNX02 | .27 (VIP) · .28 / .29 | LNX01 (VMID 128, .28) y LNX02 (VMID 129, .29) en Proxmox con SQL Server 2025 **Enterprise Developer** configurado, Always On y Agente activados (19/11). **Clúster Pacemaker `cibernova-g3`** de 3 nodos (LNX01, LNX02, BKP01) con fencing `fence_pve` probado (23/11). AG, VIP y resto de servicios sin configurar |
+| Web + SFTP + SQL Server (VIP) | LNX01 / LNX02 | .27 (VIP) · .28 / .29 | LNX01 (VMID 128, .28) y LNX02 (VMID 129, .29) en Proxmox con SQL Server 2025 **Enterprise Developer** configurado, Always On y Agente activados (19/11). **Clúster Pacemaker `cibernova-g3`** de 3 nodos (LNX01, LNX02, BKP01) con fencing `fence_pve` probado (23/11). **AG `sqlag_cibernova`** (LNX01 principal, LNX02 secundaria síncrona, BKP01 solo configuración) gestionado por Pacemaker y **VIP .27** junto a la principal (24/11). Falta: base de datos en el AG, prueba de conmutación, web y SFTP |
 | DHCP (Kea) | LNX01 / LNX02 | .28 / .29 | Sin crear |
 | Copias (Bareos) | BKP01 / BKP02 | .30 / .31 | BKP01 (VMID 130) y BKP02 (VMID 131) creadas y personalizadas en Proxmox. BKP01 con SQL Server 2025 **Express** y Always On (futura réplica de solo configuración del AG). Bareos sin instalar |
 

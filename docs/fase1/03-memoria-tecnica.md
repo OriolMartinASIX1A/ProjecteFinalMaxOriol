@@ -1,22 +1,22 @@
 # Memoria técnica de la infraestructura desplegada – Fase 1
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 0.11 · 23/11/2026 (FS01 en VirtualBox: dominio, disco de datos, roles, espacio de nombres y recursos compartidos, apartado 2.6) · v0.10 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing, apartado 2.3.7) · v0.9 · 19/11/2026 (sesión 2 Linux: SQL Server configurado, BKP01 y BKP02, apartado 2.3.6) · v0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
+**Versión:** 0.12 · 24/11/2026 (AG de SQL Server en Pacemaker con VIP .27, apartado 2.3.8; FS01: carpetas del espacio de nombres y replicación con DC02, apartado 2.6) · v0.11 · 23/11/2026 (FS01 en VirtualBox: dominio, disco de datos, roles, espacio de nombres y recursos compartidos, apartado 2.6) · v0.10 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing, apartado 2.3.7) · v0.9 · 19/11/2026 (sesión 2 Linux: SQL Server configurado, BKP01 y BKP02, apartado 2.3.6) · v0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
 
 > Documento vivo: se amplía al terminar cada servicio. Lo marcado con **[PENDIENTE DE CONFIRMAR]** hay que verificarlo.
 
 ---
 
-## 1. Estado actual (19/11/2026)
+## 1. Estado actual (24/11/2026)
 
 | VM | Estado | Dónde está | Notas |
 |---|---|---|---|
 | Host Proxmox | Instalado (Proxmox VE 9.2.21, nodo `PROC`) | Servidor físico (192.168.202.3) | Ver [guía del hipervisor](02-guia-instalacion-hipervisor.md) |
 | DC01 | **AD completo** (16/11): bosque `cibernova.local`, 23 OU, 27 grupos, 89 empleados, 6 cuentas adm., 6 cuentas especiales y políticas de contraseña. **DNS configurado y verificado** (18/11, apartado 3.3) y **GPO de seguridad** (18/11, apartado 3.4). Hora con `hora.roa.es`. **No se importó el 17/11 (D-05).** Faltan los grupos `DL_` y la unión del resto de máquinas | **VirtualBox** (exportar a OVA e importar en Proxmox en la sesión 2) | |
 | DC02 | **Promovido el 19/11 en VirtualBox** (DNS + catálogo global), replicando con DC01 | Pendiente de exportar a OVA e importar en Proxmox (VMID 124) junto con DC01 | Ver precauciones del apartado 2.4 y [guía 07](07-guia-dominio-dc02-union.md), apartado 2 |
-| LNX01 | **Proxmox (VMID 128)**: Ubuntu 24.04.5, IP .28 fija, DNS públicos, **SQL Server 2025 Enterprise Developer** con Always On y Agente | **Proxmox** | Importación manual (el asistente falló). Apartados 2.3 y 2.3.6 |
-| LNX02 | **Proxmox (VMID 129)**: clon de LNX01 personalizado, IP .29, **SQL Server 2025 Enterprise Developer** con Always On y Agente | Proxmox | Apartados 2.3.4 y 2.3.6 |
-| BKP01 | **Proxmox (VMID 130)**: clon personalizado (18/11), IP .30, **SQL Server 2025 Express** con Always On (futura réplica de solo configuración) | Proxmox | Apartados 2.3.4 y 2.3.6 |
+| LNX01 | **Proxmox (VMID 128)**: Ubuntu 24.04.5, IP .28 fija, DNS públicos, **SQL Server 2025 Enterprise Developer** con Always On y Agente. **Réplica principal del AG `sqlag_cibernova`** y VIP .27 (24/11) | **Proxmox** | Importación manual (el asistente falló). Apartados 2.3, 2.3.6 y 2.3.8 |
+| LNX02 | **Proxmox (VMID 129)**: clon de LNX01 personalizado, IP .29, **SQL Server 2025 Enterprise Developer** con Always On y Agente. **Réplica secundaria síncrona del AG** (24/11) | Proxmox | Apartados 2.3.4, 2.3.6 y 2.3.8 |
+| BKP01 | **Proxmox (VMID 130)**: clon personalizado (18/11), IP .30, **SQL Server 2025 Express**, **réplica de solo configuración del AG** (24/11) y tercer nodo Pacemaker | Proxmox | Apartados 2.3.4, 2.3.6 y 2.3.8 |
 | BKP02 | **Proxmox (VMID 131)**: clon de la instantánea `base-limpia` (sin SQL Server), personalizado, IP .31 | Proxmox | Apartado 2.3.6. Bareos pendiente |
 | FS01 | **Configuración base (23/11):** unida al dominio (OU Servidores), D: `Datos` de 150 GB, roles de ficheros, espacio de nombres `\\cibernova.local\empresa` con ABE y cuatro recursos compartidos ocultos | **VirtualBox** (pendiente de importar en Proxmox, VMID 125) | Apartado 2.6 |
 | FS02, clientes | Sin crear | — | — |
@@ -355,6 +355,113 @@ sudo pcs status && sudo pcs stonith history
 
 **Capturas** (prefijo `2026-11-23_sesion03_`): `lnx01_hosts-antes`, `*_hosts-*`, `lnx01_hora`, `bkp01_ping-nodos`, `*_paquetes-pacemaker`, `*_cluster-debian`, `*_cluster-destroy`, `*_sin-cluster`, `lnx01_pcs-host-auth`, `lnx01_pcs-cluster-setup`, `lnx01_pcs-cluster-start`, `lnx01_pcs-status-3-nodos`, `lnx01_quorum`, `proxmox_usuario-fence`, `lnx01_fence-pve-status`, `lnx01_stonith-error-vmtype`, `lnx01_pcs-status-stonith`, `lnx01_fence-lnx02-offline`, `lnx01_fence-lnx02-vuelve-historial`.
 
+### 2.3.8 Grupo de disponibilidad de SQL Server en Pacemaker (24/11, sesión 3)
+
+**Punto de partida:** el clúster `cibernova-g3` vuelve a formarse solo tras el apagado del 23/11 y `mssql-server` está activo en los tres nodos. `ufw` inactivo; SQL Server escucha en el 1433.
+
+**1. Certificado para que las réplicas se autentiquen** (sin depender del dominio). Las órdenes con contraseña se escriben en `sqlcmd` interactivo (no quedan en el historial de bash):
+
+```sql
+-- LNX01 (sqlcmd -S localhost -U sa -C)
+CREATE MASTER KEY ENCRYPTION BY PASSWORD = '...';
+CREATE CERTIFICATE dbm_certificate WITH SUBJECT = 'CiberNova AG', EXPIRY_DATE = '20281231';
+BACKUP CERTIFICATE dbm_certificate TO FILE = '/var/opt/mssql/data/dbm_certificate.cer'
+WITH PRIVATE KEY (FILE = '/var/opt/mssql/data/dbm_certificate.pvk', ENCRYPTION BY PASSWORD = '...');
+```
+
+- `EXPIRY_DATE = '2028-12-31'` falla con *Msg 190*: SQL Server en castellano lee día-mes-año. El formato `AAAAMMDD` vale en cualquier idioma. Sin fecha, el certificado caduca al año, antes de la Fase 3.
+
+```bash
+# LNX01: copiar a los otros nodos (el * lo expande root, porque el usuario no puede leer la carpeta)
+sudo sh -c 'cp /var/opt/mssql/data/dbm_certificate.* /tmp/ && chown admincibernova /tmp/dbm_certificate.*'
+scp /tmp/dbm_certificate.* admincibernova@lnx02:/tmp/ && scp /tmp/dbm_certificate.* admincibernova@bkp01:/tmp/
+rm /tmp/dbm_certificate.*
+# LNX02 y BKP01
+sudo sh -c 'mv /tmp/dbm_certificate.* /var/opt/mssql/data/ && chown mssql:mssql /var/opt/mssql/data/dbm_certificate.* && chmod 660 /var/opt/mssql/data/dbm_certificate.*'
+sudo ls -l /var/opt/mssql/data/ | grep dbm
+```
+
+```sql
+-- LNX02 y BKP01
+CREATE MASTER KEY ENCRYPTION BY PASSWORD = '...';
+CREATE CERTIFICATE dbm_certificate FROM FILE = '/var/opt/mssql/data/dbm_certificate.cer'
+WITH PRIVATE KEY (FILE = '/var/opt/mssql/data/dbm_certificate.pvk', DECRYPTION BY PASSWORD = '...');
+SELECT name, expiry_date FROM sys.certificates WHERE name = 'dbm_certificate';   -- 2028-12-31 en los tres
+```
+
+**2. *Endpoints* (puerto 5022, autenticación por certificado y cifrado AES):**
+
+```sql
+CREATE ENDPOINT [Hadr_endpoint] AS TCP (LISTENER_PORT = 5022)
+FOR DATABASE_MIRRORING (ROLE = ALL, AUTHENTICATION = CERTIFICATE dbm_certificate, ENCRYPTION = REQUIRED ALGORITHM AES);
+ALTER ENDPOINT [Hadr_endpoint] STATE = STARTED;
+-- En BKP01, ROLE = WITNESS: con SQL Server Express es el único valor válido
+SELECT name, state_desc, role_desc FROM sys.database_mirroring_endpoints;
+```
+
+**3. AG `sqlag_cibernova`** (nombre decidido por Max: distinto del listener `sqlag`):
+
+| Réplica | Modo | Conmutación | Papel |
+|---|---|---|---|
+| `lnx01` | `SYNCHRONOUS_COMMIT` | `EXTERNAL` (Pacemaker) | Principal al empezar |
+| `lnx02` | `SYNCHRONOUS_COMMIT` | `EXTERNAL` (Pacemaker) | Secundaria; RPO = 0 |
+| `bkp01` | `CONFIGURATION_ONLY` | — | Guarda la configuración y vota; sin datos |
+
+```sql
+-- LNX01
+CREATE AVAILABILITY GROUP [sqlag_cibernova] WITH (CLUSTER_TYPE = EXTERNAL) FOR REPLICA ON
+ N'lnx01' WITH (ENDPOINT_URL = N'tcp://lnx01:5022', AVAILABILITY_MODE = SYNCHRONOUS_COMMIT, FAILOVER_MODE = EXTERNAL, SEEDING_MODE = AUTOMATIC),
+ N'lnx02' WITH (ENDPOINT_URL = N'tcp://lnx02:5022', AVAILABILITY_MODE = SYNCHRONOUS_COMMIT, FAILOVER_MODE = EXTERNAL, SEEDING_MODE = AUTOMATIC),
+ N'bkp01' WITH (ENDPOINT_URL = N'tcp://bkp01:5022', AVAILABILITY_MODE = CONFIGURATION_ONLY);
+ALTER AVAILABILITY GROUP [sqlag_cibernova] GRANT CREATE ANY DATABASE;
+-- LNX02: JOIN + GRANT CREATE ANY DATABASE · BKP01: solo JOIN
+ALTER AVAILABILITY GROUP [sqlag_cibernova] JOIN WITH (CLUSTER_TYPE = EXTERNAL);
+-- Comprobación en LNX01
+SELECT r.replica_server_name, r.availability_mode_desc, s.role_desc, s.connected_state_desc
+FROM sys.availability_replicas r JOIN sys.dm_hadr_availability_replica_states s ON r.replica_id = s.replica_id;
+```
+
+Resultado: `lnx01 PRIMARY`, `lnx02 SECONDARY`, `bkp01 SECONDARY (CONFIGURATION_ONLY)`, las tres `CONNECTED`.
+
+**4. Login de Pacemaker con mínimo privilegio** (en los tres):
+
+```sql
+CREATE LOGIN pacemakerLogin WITH PASSWORD = '...';
+GRANT ALTER, CONTROL, VIEW DEFINITION ON AVAILABILITY GROUP::sqlag_cibernova TO pacemakerLogin;
+GRANT VIEW SERVER STATE TO pacemakerLogin;
+```
+
+```bash
+ printf 'pacemakerLogin\n...\n' | sudo tee /var/opt/mssql/secrets/passwd > /dev/null    # con un espacio delante
+sudo chown root:root /var/opt/mssql/secrets/passwd && sudo chmod 400 /var/opt/mssql/secrets/passwd
+# Comprobación sin mostrar la contraseña (ruta completa: root no tiene sqlcmd en el PATH)
+sudo sh -c '/opt/mssql-tools18/bin/sqlcmd -S localhost -C -U "$(sed -n 1p /var/opt/mssql/secrets/passwd)" -P "$(sed -n 2p /var/opt/mssql/secrets/passwd)" -Q "SELECT SUSER_NAME()"'
+```
+
+**Riesgo aceptado:** la contraseña de `pacemakerLogin` está en texto plano en ese fichero (lo exige el agente de Microsoft); lo compensan los permisos `400 root` y que el login solo tiene permisos sobre el AG.
+
+**5. Recursos de Pacemaker** (solo desde LNX01):
+
+```bash
+ls /usr/lib/ocf/resource.d/mssql/        # ag, agv2, fci (paquete mssql-server-ha)
+sudo pcs resource create ag_cluster ocf:mssql:ag ag_name=sqlag_cibernova meta failure-timeout=60s promotable notify=true
+ping -c 2 192.168.202.27                 # antes de crear la VIP: tiene que fallar (IP libre)
+sudo pcs resource create virtualip ocf:heartbeat:IPaddr2 ip=192.168.202.27 cidr_netmask=22 op monitor interval=10s
+sudo pcs constraint colocation add virtualip with Promoted ag_cluster-clone INFINITY
+sudo pcs constraint order promote ag_cluster-clone then start virtualip
+sudo pcs status && ip -br addr show ens18
+```
+
+- `promotable`: el recurso corre en los tres nodos y solo uno es `Promoted` (la principal). `notify=true` lo necesita el agente de Microsoft. `failure-timeout=60s` evita que un fallo puntual bloquee un nodo para siempre.
+- `pcs` avisa (*Deprecation Warning*) de que en versiones futuras `meta` irá después de `promotable`; el recurso se crea bien.
+- Colocación `INFINITY` con la réplica `Promoted`: la VIP nunca está en una secundaria ni en BKP01. Orden `Mandatory`: la VIP solo se levanta cuando ya hay principal.
+
+Resultado: `ag_cluster` → `Promoted lnx01`, `Unpromoted lnx02 bkp01`; `virtualip Started lnx01`; `ens18` de LNX01 con 192.168.202.28/22 y 192.168.202.27/22.
+
+**Pendiente:** base de datos de prueba en el AG (*seeding* automático a LNX02) y pruebas de conmutación (manual y apagando LNX01) el 26/11, antes del punto de control del 1/12. Firewall de los Linux (1433, 5022, 2224, 3121, 21064/TCP y 5405/UDP).
+
+**Capturas** (prefijo `2026-11-24_sesion03_`): `*_cluster-tras-reinicio`, `*_ufw-puertos`, `lnx01_error-fecha-certificado`, `lnx01_certificado-creado`, `lnx01_ficheros-certificado`, `lnx01_cert-a-tmp`, `lnx01_scp-certificado`, `lnx01_borrar-tmp`, `lnx02/bkp01_mover-certificado`, `lnx02/bkp01_ficheros-certificado`, `lnx02_crear-certificado`, `bkp01_master-key`, `bkp01_crear-certificado`, `lnx02/bkp01_certificado-importado`, `*_endpoint`, `*_puerto-5022`, `lnx01_crear-ag`, `lnx02/bkp01_join-ag`, `lnx01_replicas-ag`, `*_login-pacemaker`, `lnx01_fichero-passwd`, `*_prueba-pacemakerlogin`, `*_agente-mssql`, `lnx01_pcs-status-ag`, `lnx01_crear-vip-reglas`, `lnx01_pcs-status-vip`.
+
 ### 2.4 Precauciones con los controladores de dominio
 
 - **DC02 no se puede crear clonando DC01.** Un DC promovido no se clona nunca. DC02 se crea con una instalación limpia de Windows Server 2025 (o clonando una plantilla **sin dominio** a la que se haya pasado `sysprep /generalize /oobe /shutdown`), y después se promueve como DC adicional del dominio `cibernova.local`.
@@ -408,7 +515,14 @@ $au=(New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-11').Transla
 
 **Decisiones:** cuatro recursos en lugar de uno y permisos abiertos en el recurso con los reales en NTFS (diseño, apartado 3.8; bitácora del 23/11). Los permisos NTFS se aplicarán con `06-carpetas-permisos.ps1` (matriz P-01 a P-44).
 
-**Pendiente en FS01:** carpetas del espacio de nombres (`New-DfsnFolder` → `\\FS01\<Carpeta>$`), subcarpetas del Anexo I, grupos `DL_` y permisos NTFS, SACL de auditoría, cuotas FSRM, DFS-R con FS02 e importación en Proxmox (VMID 125).
+**7. Carpetas del espacio de nombres (24/11, por interfaz gráfica):** Administración de DFS → `\\cibernova.local\empresa` → Nueva carpeta: `Comun`, `Departamentos`, `Personales` y `Proyectos`, cada una con destino `\\FS01\<Carpeta>$`, sin grupo de replicación (se crea con FS02). Comprobación (`Get-DfsnFolderTarget` no admite comodines: error 1168):
+```powershell
+Get-DfsnFolder -Path "\\cibernova.local\empresa\*" | ForEach-Object { Get-DfsnFolderTarget -Path $_.Path }   # las cuatro Online
+```
+
+**8. Replicación con DC02 (24/11):** en DC01, `repadmin /syncall /AdeP` y `repadmin /replsummary` → 0 errores en las dos direcciones. En DC02, `Get-ADComputer FS01` → `OU=Servidores` y `Get-DfsnRoot` → `\\cibernova.local\empresa` `Online`: el espacio de nombres ya no depende solo de DC01. (Si se ponen dos comandos con objetos distintos en la misma línea, PowerShell muestra el segundo en blanco: ejecutarlos por separado.)
+
+**Pendiente en FS01:** subcarpetas del Anexo I, grupos `DL_` y permisos NTFS, SACL de auditoría, cuotas FSRM, DFS-R con FS02 e importación en Proxmox (VMID 125).
 
 ---
 
@@ -634,7 +748,8 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 - [x] Personalizar BKP01 (.30, 18/11) y crear BKP02 (131, .31, 19/11, desde `base-limpia`).
 - [x] `mssql-conf setup` en LNX01, LNX02 (Enterprise Developer) y BKP01 (Express); `hadr.hadrenabled` activado en las tres y Agente en LNX01/LNX02 (19/11).
 - [x] Pacemaker + Corosync (`cibernova-g3`) de 3 nodos y fencing con `fence_pve`, probado (23/11, apartado 2.3.7).
-- [ ] AG de SQL Server (certificados, *endpoints*, réplica de solo configuración en BKP01), recursos de Pacemaker y VIP .27.
+- [x] AG de SQL Server `sqlag_cibernova` (certificados, *endpoints*, réplica de solo configuración en BKP01), recursos de Pacemaker y VIP .27 (24/11, apartado 2.3.8).
+- [ ] Base de datos de prueba en el AG y pruebas de conmutación (26/11; punto de control 1/12).
 - [ ] **Todo subido a GitHub antes del 4/12/2026** (cierre del repositorio).
 - [x] OU Equipos y Servidores: script 01 v2.1 ejecutado en DC01, 23 OU (16/11).
 - [x] Ejecutar `03-cuentas-especiales.ps1` en DC01: 26 comprobaciones OK (16/11).
@@ -645,4 +760,4 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 - [x] GPO de seguridad (script 05 v1.1, 18/11): 25 OK.
 - [ ] Unir todas las máquinas al dominio ([guía 07](07-guia-dominio-dc02-union.md)). **FS01 unida el 23/11** (apartado 2.6).
 - [x] FS01 en VirtualBox: disco de datos, roles, espacio de nombres con ABE y cuatro recursos compartidos (23/11, apartado 2.6).
-- [ ] FS01: carpetas DFS, permisos NTFS (script 06), auditoría y cuotas. FS02 y DFS-R.
+- [ ] FS01: ~~carpetas DFS~~ (hecho el 24/11), permisos NTFS (script 06), auditoría y cuotas. FS02 y DFS-R.

@@ -96,6 +96,48 @@ Registro continuo de decisiones, problemas, soluciones y desfases. Una entrada p
 
 ## Entradas
 
+### 2026-11-24 · Sesión 3 (AG de SQL Server) · Max
+
+**Hecho:**
+- **Clúster tras el apagado del 23/11:** al encender las tres VMs, `cibernova-g3` vuelve a formarse solo (3 nodos `Online`, quórum, `fence-proxmox` arrancado) y `mssql-server` está `active` en los tres (LNX02 también, tras el fencing del 23/11).
+- **Firewall y puertos:** `ufw` inactivo en los tres; SQL Server escucha en el 1433. El firewall de los Linux queda pendiente (habrá que abrir 1433, 5022, 2224, 3121, 21064/TCP y 5405/UDP).
+- **Certificado del AG** en LNX01 (`sqlcmd` interactivo, para que las contraseñas no queden en el historial): clave maestra, certificado `dbm_certificate` (caduca el 31/12/2028) y copia en `.cer` + `.pvk` (clave privada cifrada). Copiado a LNX02 y BKP01 por `scp` (borrado de `/tmp` después), con propietario `mssql`, e importado en los dos con su propia clave maestra. `sys.certificates` → misma caducidad en los tres.
+- **Endpoints `Hadr_endpoint`** en el puerto 5022 con autenticación por certificado y cifrado AES: `ROLE = ALL` en LNX01 y LNX02, `ROLE = WITNESS` en BKP01 (Express solo puede ser testigo). Los tres `STARTED` y escuchando en el 5022.
+- **AG `sqlag_cibernova`** (`CLUSTER_TYPE = EXTERNAL`) creado en LNX01: `lnx01` y `lnx02` en `SYNCHRONOUS_COMMIT` con `FAILOVER_MODE = EXTERNAL` y `SEEDING_MODE = AUTOMATIC`; `bkp01` en `CONFIGURATION_ONLY`. LNX02 y BKP01 unidos con `JOIN WITH (CLUSTER_TYPE = EXTERNAL)`; `GRANT CREATE ANY DATABASE` en LNX01 y LNX02. Comprobación: `lnx01 PRIMARY`, `lnx02 SECONDARY`, `bkp01 SECONDARY (CONFIGURATION_ONLY)`, las tres **`CONNECTED`**.
+- **Login `pacemakerLogin`** en los tres con permisos mínimos (`ALTER, CONTROL, VIEW DEFINITION` solo sobre el AG y `VIEW SERVER STATE`) y fichero `/var/opt/mssql/secrets/passwd` (`root`, `400`). Comprobado sin mostrar la contraseña: `sqlcmd` con los datos del fichero → `SELECT SUSER_NAME()` = `pacemakerLogin` en los tres.
+- **Recurso `ag_cluster`** (`ocf:mssql:ag`, `promotable`, `notify=true`, `failure-timeout=60s`): `Promoted lnx01`, `Unpromoted lnx02 bkp01`.
+- **VIP `virtualip`** (`IPaddr2`, 192.168.202.27/22, monitor cada 10 s), comprobando antes que la .27 estaba libre. Restricciones: colocación con la réplica `Promoted` (`INFINITY`) y orden `promote ag_cluster-clone then start virtualip` (`Mandatory`). Resultado: `virtualip Started lnx01`; `ens18` de LNX01 con .28 y .27.
+- 44 capturas (`2026-11-24_sesion03_*`, en `capturas-sesion03b.zip`).
+
+**Problemas y soluciones:**
+- Problema: `CREATE CERTIFICATE ... EXPIRY_DATE = '2028-12-31'` → *Msg 190, «Se ha especificado una fecha u hora no válida»*. → Causa: SQL Server en castellano lee las fechas como día-mes-año. Solución: formato sin separadores `'20281231'` (AAAAMMDD), que vale en cualquier idioma.
+- Problema: `sudo ls -l /var/opt/mssql/data/dbm_certificate.*` → *No such file or directory*, aunque los ficheros existían. → Causa: el `*` lo expande la terminal del usuario antes de `sudo`, y el usuario no puede leer esa carpeta. Solución: `sudo ls -l /var/opt/mssql/data/ | grep dbm` y `sudo sh -c '...'` para los comandos con `*`.
+- Problema: al comprobar el fichero `passwd` con `sudo sh -c 'sqlcmd ...'` → `sqlcmd: not found`. → Causa: `root` no tiene `/opt/mssql-tools18/bin` en su PATH. Solución: ruta completa `/opt/mssql-tools18/bin/sqlcmd`.
+- Aviso de `pcs` al crear `ag_cluster` (*Deprecation Warning* por poner atributos `meta` después de `promotable`): no es un error; el recurso se crea bien. Con versiones nuevas de `pcs` habrá que escribir `meta` después de `promotable`.
+
+**Decisiones:**
+- **Nombre del AG: `sqlag_cibernova`** (Max). Distinto del listener `sqlag` (nombre DNS de la VIP .27) para no confundir el grupo con la dirección de conexión. Alternativa: `sqlag` para los dos → descartada.
+- **Autenticación entre réplicas por certificado** (esquema de Microsoft para Linux): no depende del dominio, que todavía no está en Proxmox. Caducidad explícita a 31/12/2028 para que no caduque antes de la Fase 3 (por defecto, un año).
+- **`pacemakerLogin` con mínimo privilegio** en lugar de `sa`. **Riesgo aceptado:** su contraseña queda en texto plano en `/var/opt/mssql/secrets/passwd` (lo exige el agente de Microsoft); lo compensan los permisos `400 root` y que el login solo tiene permisos sobre el AG.
+- Las contraseñas de SQL Server se escriben en `sqlcmd` interactivo o con un espacio delante del comando (no quedan en el historial), y se tapan en las capturas.
+
+**Desfase:** No (adelanto). El AG con Pacemaker y la VIP, previstos para la sesión 4, están hechos. Queda para el 26/11: base de datos de prueba en el AG (*seeding* automático a LNX02) y **pruebas de conmutación** (manual y apagando LNX01) antes del punto de control del 1/12.
+
+**Siguiente sesión (26/11):** base de datos de prueba en el AG; conmutación manual a LNX02 y vuelta; prueba de caída de LNX01 (la VIP y el AG pasan a LNX02); después, Apache + PHP-FPM.
+
+### 2026-11-24 · Antes de la sesión 3 (FS01: carpetas DFS y replicación) · Oriol
+
+**Hecho (en VirtualBox, con DC01 y DC02 encendidos):**
+- **Carpetas del espacio de nombres** (por interfaz gráfica, 15:15–15:27): `Comun`, `Departamentos`, `Personales` y `Proyectos` en `\\cibernova.local\empresa`, cada una con destino `\\FS01\<Carpeta>$`, sin grupo de replicación (se crea con FS02). La consola muestra «4 entradas» 📸 (`2026-11-24_casa_fs01_dfsn-carpetas`). Con el comando correcto, las cuatro carpetas salen `Online`.
+- **Replicación DC01 ↔ DC02 comprobada** (15:30–15:38): `repadmin /syncall /AdeP` y `repadmin /replsummary` → 0 errores en las dos direcciones. En DC02, `Get-ADComputer FS01` → `OU=Servidores` y `Get-DfsnRoot` → `\\cibernova.local\empresa` `Online` (el espacio de nombres ya no depende solo de DC01) 📸 (`2026-11-24_casa_dc01_replsummary`, `2026-11-24_casa_dc02_fs01-dfsn`).
+
+**Problemas y soluciones:**
+- Problema: `Get-DfsnFolderTarget -Path "\\cibernova.local\empresa\*"` → *«No se encontró el objeto solicitado»* (error 1168). → Causa: ese cmdlet no admite comodines. Solución: `Get-DfsnFolder -Path "\\cibernova.local\empresa\*" | ForEach-Object { Get-DfsnFolderTarget -Path $_.Path }`.
+- Problema: dos comandos con objetos distintos en la misma línea → PowerShell mostró el segundo en blanco (reutiliza las columnas del primero). Solución: ejecutarlos por separado.
+
+**Desfase:** No.
+
+
 ### 2026-11-23 · Fuera de horario (FS01 en VirtualBox) · Oriol
 
 FS01 creada y configurada en VirtualBox (adaptador puente, mismo equipo que los DC) con DC01 encendido; DC02 apagado mientras tanto. Capturas en la memoria del proyecto (Google Doc), apartado "Instalación de FS01".

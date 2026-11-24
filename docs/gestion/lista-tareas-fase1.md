@@ -1,7 +1,7 @@
 # Lista de tareas de la Fase 1 (control de requisitos)
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 1.7 · 23/11/2026 (FS01 en VirtualBox: unida al dominio, disco de datos, roles, espacio de nombres con ABE y cuatro recursos compartidos; DOM-01 y FS-01 parciales, FS-08 parcial) · v1.6 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing: HV-07, HA-01 y HA-02 ✅) · v1.5 · 19/11/2026 (sesión 2 Linux: SQL Server configurado en LNX01, LNX02 y BKP01; BKP02 creada) · v1.4 · 19/11/2026 (DC02 promovido y comprobado en VirtualBox; reenviadores de DC02) · v1.3 · 19/11/2026 (reenviadores corregidos, revisión general de documentos, DC02 en VirtualBox)
+**Versión:** 1.8 · 24/11/2026 (AG `sqlag_cibernova` en Pacemaker con VIP .27: DB-03 y HA-03 ✅, DB-04 parcial; FS01: carpetas del espacio de nombres, FS-02 parcial) · v1.7 · 23/11/2026 (FS01 en VirtualBox: unida al dominio, disco de datos, roles, espacio de nombres con ABE y cuatro recursos compartidos; DOM-01 y FS-01 parciales, FS-08 parcial) · v1.6 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing: HV-07, HA-01 y HA-02 ✅) · v1.5 · 19/11/2026 (sesión 2 Linux: SQL Server configurado en LNX01, LNX02 y BKP01; BKP02 creada) · v1.4 · 19/11/2026 (DC02 promovido y comprobado en VirtualBox; reenviadores de DC02) · v1.3 · 19/11/2026 (reenviadores corregidos, revisión general de documentos, DC02 en VirtualBox)
 
 > **Para qué sirve:** es la lista de todo lo que pide la práctica y en qué punto está. **Regla:** solo se marca ✅ lo que Max u Oriol han confirmado que está hecho (con su captura o comprobación). Todo lo demás está pendiente. Antes de dar por terminado un servicio o una máquina, se revisa esta lista.
 >
@@ -23,7 +23,7 @@
 | DHCP | ⏳ ❓ permiso del profesorado | ⏳ Kea HA | ⏳ |
 | Servidor web | ⏳ ❓ aplicación sin decidir | ⏳ Pacemaker + VIP | ⏳ |
 | FTP/SFTP | ⏳ | ⏳ Pacemaker + VIP | ⏳ |
-| Base de datos | ✅ SQL Server 2025 configurado (19/11): Enterprise Developer en LNX01/LNX02, Express en BKP01, Always On activado | ⏳ AG + Pacemaker | ⏳ |
+| Base de datos | ✅ SQL Server 2025 configurado (19/11): Enterprise Developer en LNX01/LNX02, Express en BKP01, Always On activado | ✅ AG `sqlag_cibernova` en Pacemaker con VIP .27 (24/11) · ⏳ prueba de conmutación | ⏳ |
 | Ficheros con DFS | ⏳ FS01 (23/11, en VirtualBox): roles, espacio de nombres `\\cibernova.local\empresa` con ABE y cuatro recursos compartidos ocultos; faltan carpetas DFS, permisos y cuotas | ⏳ DFS-N + DFS-R (falta FS02) | ⏳ |
 | Usuarios y grupos con permisos y accesos | ✅ usuarios y grupos globales · ⏳ grupos `DL_`, permisos, carpetas, GPO | — | 15 pruebas del Anexo I ⏳ |
 | Backups | ⏳ | ⏳ BKP01 + BKP02 | Restauración ⏳ |
@@ -93,7 +93,7 @@
 | ID | Tarea | Estado | Notas / evidencia |
 |---|---|---|---|
 | FS-01 | FS01 (.25) y FS02 (.26): instalación limpia (VirtualBox → OVA → Proxmox), disco de datos | ⏳ Parcial | **FS01 ✅ en VirtualBox (23/11):** 2 vCPU, 4 GB, sistema 50 GB, **datos 150 GB dinámico** (D: `Datos`, GPT, NTFS), confirmado por Max y Oriol. Falta FS02 y la importación en Proxmox |
-| FS-02 | Espacio de nombres DFS de dominio `\\cibernova.local\empresa` con los nombres exactos del Anexo I (ap. 8) | ⏳ Parcial | Raíz creada el 23/11 (`Domain V2`, modo 2008, ABE) con destino FS01 📸. Recursos `Personales$`, `Departamentos$`, `Proyectos$`, `Comun$` creados. Faltan las carpetas DFS y FS02 como segundo servidor del espacio de nombres |
+| FS-02 | Espacio de nombres DFS de dominio `\\cibernova.local\empresa` con los nombres exactos del Anexo I (ap. 8) | ⏳ Parcial | Raíz creada el 23/11 (`Domain V2`, modo 2008, ABE) con destino FS01 📸. Recursos `Personales$`, `Departamentos$`, `Proyectos$`, `Comun$` creados. **Carpetas del espacio de nombres creadas el 24/11** (`Comun`, `Departamentos`, `Personales`, `Proyectos` → `\\FS01\<Carpeta>$`, las cuatro `Online`) 📸. Falta FS02 como segundo servidor del espacio de nombres |
 | FS-03 | Replicación DFS-R FS01 ↔ FS02; FS01 con prioridad en las referencias | ⏳ | 📸 informe de estado de DFS-R |
 | FS-04 | Estructura de carpetas creada por script | ⏳ | Script nuevo (propuesta: `06-carpetas-permisos.ps1`; el 05 ya es el de GPO). Las cuatro carpetas principales ya existen en `D:\Datos` |
 | FS-05 | **Matriz de permisos** P-01 a P-44 (carpetas en filas, grupos en columnas) | ⏳ | Entregable del inventario (Anexo I ap. 12) |
@@ -146,8 +146,8 @@
 |---|---|---|---|
 | DB-01 | SQL Server 2025 Enterprise Developer en LNX01 y LNX02 | ✅ | 19/11: `mssql-conf setup` (opción 2), `hadr.hadrenabled 1` y Agente activado. `sqlcmd` → Enterprise Developer, `alwayson = 1`. 📸 `lnx0x_mssql-status`, `lnx0x_mssql-comprobacion` |
 | DB-02 | SQL Server Express en BKP01 (réplica de solo configuración) | ✅ | 19/11: `mssql-conf setup` (opción 4) y `hadr.hadrenabled 1` (sin Agente: Express no lo incluye). `sqlcmd` → Express, `alwayson = 1`. Falta añadirla al AG como réplica de solo configuración (DB-03/04). 📸 `bkp01_mssql-*` |
-| DB-03 | Always On AG con commit síncrono, endpoints con certificados | ⏳ | |
-| DB-04 | AG como recurso de Pacemaker, listener en la VIP .27 | ⏳ | Punto de control 1/12 (plan B: conmutación manual) |
+| DB-03 | Always On AG con commit síncrono, endpoints con certificados | ✅ | 24/11: certificado `dbm_certificate` (hasta 31/12/2028) en los tres; *endpoints* 5022 con AES (`ALL` en LNX01/LNX02, `WITNESS` en BKP01); AG `sqlag_cibernova` (`EXTERNAL`), `lnx01`/`lnx02` síncronas y `bkp01` `CONFIGURATION_ONLY`, las tres `CONNECTED`. 📸 `*_endpoint`, `lnx01_crear-ag`, `lnx01_replicas-ag` |
+| DB-04 | AG como recurso de Pacemaker, listener en la VIP .27 | ⏳ Parcial | 24/11: `pacemakerLogin` con mínimo privilegio; recurso `ag_cluster` (`Promoted lnx01`) y VIP .27 con colocación y orden. **Falta:** base de datos en el AG y prueba de conmutación (26/11). Punto de control 1/12 (plan B: conmutación manual) |
 | DB-05 | Base de datos de la aplicación web | ❓ | Depende de la aplicación |
 | DB-06 | Acceso a la BBDD solo desde los nodos web y BKP01 | ⏳ | Firewall |
 
@@ -157,7 +157,7 @@
 |---|---|---|---|
 | HA-01 | Clúster `cibernova-g3` de **3 nodos (LNX01, LNX02, BKP01)** en unicast (knet), sin qdevice | ✅ | 23/11: 3 nodos `Online`, `Quorate: Yes` (3 votos, quórum 2). Decisión del 23/11: BKP01 es nodo porque aloja la réplica de solo configuración. 📸 `pcs-status-3-nodos`, `quorum` |
 | HA-02 | Fencing `fence_pve` contra Proxmox | ✅ | 23/11: recurso `fence-proxmox` con `pcmk_host_map`. Prueba real: `pcs stonith fence lnx02` → reinicio correcto, quórum mantenido. 📸 `fence-lnx02-*` |
-| HA-03 | VIP .27 junto al primario del AG | ⏳ | |
+| HA-03 | VIP .27 junto al primario del AG | ✅ | 24/11: `virtualip` (`IPaddr2`, /22) con colocación `INFINITY` con la réplica `Promoted` y orden `promote → start` (`Mandatory`). `Started lnx01`, .27 en `ens18` de LNX01. 📸 `lnx01_pcs-status-vip` |
 
 ## 11. Web (Max)
 
