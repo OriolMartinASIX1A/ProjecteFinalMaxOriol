@@ -1,7 +1,7 @@
 # Memoria técnica de la infraestructura desplegada – Fase 1
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 0.10 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing, apartado 2.3.7) · v0.9 · 19/11/2026 (sesión 2 Linux: SQL Server configurado, BKP01 y BKP02, apartado 2.3.6) · v0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
+**Versión:** 0.11 · 23/11/2026 (FS01 en VirtualBox: dominio, disco de datos, roles, espacio de nombres y recursos compartidos, apartado 2.6) · v0.10 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing, apartado 2.3.7) · v0.9 · 19/11/2026 (sesión 2 Linux: SQL Server configurado, BKP01 y BKP02, apartado 2.3.6) · v0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
 
 > Documento vivo: se amplía al terminar cada servicio. Lo marcado con **[PENDIENTE DE CONFIRMAR]** hay que verificarlo.
 
@@ -18,7 +18,8 @@
 | LNX02 | **Proxmox (VMID 129)**: clon de LNX01 personalizado, IP .29, **SQL Server 2025 Enterprise Developer** con Always On y Agente | Proxmox | Apartados 2.3.4 y 2.3.6 |
 | BKP01 | **Proxmox (VMID 130)**: clon personalizado (18/11), IP .30, **SQL Server 2025 Express** con Always On (futura réplica de solo configuración) | Proxmox | Apartados 2.3.4 y 2.3.6 |
 | BKP02 | **Proxmox (VMID 131)**: clon de la instantánea `base-limpia` (sin SQL Server), personalizado, IP .31 | Proxmox | Apartado 2.3.6. Bareos pendiente |
-| FS01, FS02, clientes | Sin crear | — | — |
+| FS01 | **Configuración base (23/11):** unida al dominio (OU Servidores), D: `Datos` de 150 GB, roles de ficheros, espacio de nombres `\\cibernova.local\empresa` con ABE y cuatro recursos compartidos ocultos | **VirtualBox** (pendiente de importar en Proxmox, VMID 125) | Apartado 2.6 |
+| FS02, clientes | Sin crear | — | — |
 
 > **Lista de todo lo pendiente** (requisitos del enunciado y del Anexo I, con su estado): [`docs/gestion/lista-tareas-fase1.md`](../gestion/lista-tareas-fase1.md).
 
@@ -374,6 +375,41 @@ LNX02, BKP01 y BKP02 ya están en Proxmox. Para trabajar en casa con el servidor
 
 **Ventajas:** no se pisan IPs, nombres ni claves de las VMs de Proxmox; todo queda versionado en Git (cuenta para la nota) y se puede repetir si hay que reinstalar. **[PENDIENTE DE DECIDIR]** por Max.
 
+### 2.6 FS01: instalación y configuración base en VirtualBox (23/11, Oriol)
+
+FS01 se construye en VirtualBox, en el mismo equipo que los DC y con adaptador puente, para poder unirla al dominio y configurarla en casa. Capturas en la memoria del proyecto (Google Doc), apartado "Instalación de FS01".
+
+**Recursos:** 2 vCPU, 4 GB de RAM, disco de sistema de 50 GB y **disco de datos aparte de 150 GB reservado dinámicamente** (justificación en el diseño, apartado 3.8: la suma de las cuotas personales es de 232 GB y se sobreasigna).
+
+**1. Nombre, red y comprobaciones previas (PowerShell):**
+```powershell
+Set-TimeZone -Id "Romance Standard Time"; Rename-Computer -NewName FS01 -Restart
+$if=(Get-NetAdapter | Where-Object Status -eq 'Up').Name; New-NetIPAddress -InterfaceAlias $if -IPAddress 192.168.202.25 -PrefixLength 22 -DefaultGateway 192.168.200.254; Set-DnsClientServerAddress -InterfaceAlias $if -ServerAddresses 192.168.202.23,192.168.202.24
+Resolve-DnsName -Type SRV _ldap._tcp.dc._msdcs.cibernova.local   # dc01 (.23) y dc02 (.24)
+w32tm /stripchart /computer:192.168.202.23 /samples:3              # diferencia de 0,2 s
+```
+
+**2. Unión al dominio.** `Add-Computer` falló porque se cerró la ventana de la credencial (*"No se puede enlazar el argumento al parámetro 'Credential' porque es nulo"*). Se hizo por interfaz gráfica:
+- En DC01: `dsa.msc` → `CiberNova` → `Servidores` → Nuevo → Equipo → `FS01` (**cuenta preconfigurada**: la interfaz gráfica no deja elegir la OU y, sin esto, FS01 acabaría en `Computers` sin las GPO de servidores).
+- En FS01: `sysdm.cpl` → Cambiar → Dominio `cibernova.local` → credencial `Administrador@cibernova.local` → reinicio.
+- Comprobación: `Test-ComputerSecureChannel` → `True`; `gpresult /r /scope computer` → `CN=FS01,OU=Servidores,OU=CiberNova,...` con `GPO_Servidores_Auditoria`, `Default Domain Policy`, `GPO_Dominio_CuentasServicio` y `GPO_Dominio_Firewall`.
+
+**3. Roles (Administrador del servidor → Agregar roles y características):** Servidor de archivos, Espacios de nombres DFS, Replicación DFS y Administrador de recursos del servidor de archivos, con sus herramientas. Comprobación: `Get-WindowsFeature FS-FileServer, FS-DFS-Namespace, FS-DFS-Replication, FS-Resource-Manager` → `Installed`.
+
+**4. Espacio de nombres (Administración de DFS → Nuevo espacio de nombres):** servidor FS01, nombre `empresa` (nombre fijado por el Anexo I), raíz `C:\DFSRoots\empresa` con permisos "administradores control total, resto solo lectura", **basado en dominio** y **modo Windows Server 2008**. Después, Propiedades → Avanzadas → **Habilitar la enumeración basada en el acceso**. Comprobación: `Get-DfsnRoot` → `Domain V2`, `Online`, `Flags: Site Costing, AccessBased Enumeration`; `Get-DfsnRootTarget` → `\\FS01.cibernova.local\empresa` `Online`.
+
+**5. Disco de datos (Administración de discos):** inicializar en **GPT** (estándar actual, admite más de 2 TB), nuevo volumen simple **NTFS**, letra **D:**, etiqueta **`Datos`**.
+
+**6. Recursos compartidos ocultos con ABE:** carpetas `D:\Datos\Personales`, `Departamentos`, `Proyectos` y `Comun`. `Personales$` por interfaz gráfica (Nuevo recurso compartido → SMB rápido → marcar *Habilitar la enumeración basada en el acceso* → Personalizar permisos → pestaña *Compartir*: quitar *Todos* y dar Control total a *Usuarios autentificados*; la pestaña *Permisos* (NTFS) no se toca). Los otros tres por PowerShell:
+```powershell
+$au=(New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-11').Translate([System.Security.Principal.NTAccount]).Value; foreach ($c in 'Departamentos','Proyectos','Comun') { New-Item -ItemType Directory -Force -Path "D:\Datos\$c" | Out-Null; New-SmbShare -Name ($c + '$') -Path "D:\Datos\$c" -FullAccess $au -FolderEnumerationMode AccessBased }
+```
+(El SID S-1-5-11 es *Usuarios autentificados*; así funciona con Windows en castellano.) Comprobación: `Get-SmbShare` y `Get-SmbShareAccess` → los cuatro `AccessBased` y una sola entrada `NT AUTHORITY\Usuarios autentificados · Full`.
+
+**Decisiones:** cuatro recursos en lugar de uno y permisos abiertos en el recurso con los reales en NTFS (diseño, apartado 3.8; bitácora del 23/11). Los permisos NTFS se aplicarán con `06-carpetas-permisos.ps1` (matriz P-01 a P-44).
+
+**Pendiente en FS01:** carpetas del espacio de nombres (`New-DfsnFolder` → `\\FS01\<Carpeta>$`), subcarpetas del Anexo I, grupos `DL_` y permisos NTFS, SACL de auditoría, cuotas FSRM, DFS-R con FS02 e importación en Proxmox (VMID 125).
+
 ---
 
 ## 3. DC01 – Controlador de dominio principal
@@ -607,4 +643,6 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 - [ ] Carpetas personales (creadas por el script de alta), cuotas y perfiles (cuando esté el servidor de ficheros).
 - [x] Configurar el DNS de DC01 (script 04, 17/11; deshecho con el 84 y rehecho por la interfaz gráfica el 18/11; reenviadores 8.8.8.8 y 1.1.1.1).
 - [x] GPO de seguridad (script 05 v1.1, 18/11): 25 OK.
-- [ ] Unir todas las máquinas al dominio ([guía 07](07-guia-dominio-dc02-union.md)).
+- [ ] Unir todas las máquinas al dominio ([guía 07](07-guia-dominio-dc02-union.md)). **FS01 unida el 23/11** (apartado 2.6).
+- [x] FS01 en VirtualBox: disco de datos, roles, espacio de nombres con ABE y cuatro recursos compartidos (23/11, apartado 2.6).
+- [ ] FS01: carpetas DFS, permisos NTFS (script 06), auditoría y cuotas. FS02 y DFS-R.

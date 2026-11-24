@@ -96,6 +96,42 @@ Registro continuo de decisiones, problemas, soluciones y desfases. Una entrada p
 
 ## Entradas
 
+### 2026-11-23 · Fuera de horario (FS01 en VirtualBox) · Oriol
+
+FS01 creada y configurada en VirtualBox (adaptador puente, mismo equipo que los DC) con DC01 encendido; DC02 apagado mientras tanto. Capturas en la memoria del proyecto (Google Doc), apartado "Instalación de FS01".
+
+**Hecho:**
+- **VM FS01:** Windows Server 2025, **2 vCPU, 4 GB de RAM, disco de sistema de 50 GB** y un **segundo disco VDI de 150 GB reservado dinámicamente** solo para datos.
+- **Red y nombre:** zona horaria `Romance Standard Time`, nombre `FS01`, IP 192.168.202.25/22, puerta 192.168.200.254, DNS .23 y .24. `ping` a DC01 correcto.
+- **Antes de unir:** `Resolve-DnsName -Type SRV _ldap._tcp.dc._msdcs.cibernova.local` → dc01 (.23) y dc02 (.24); `w32tm /stripchart` contra DC01 → diferencia de 0,2 s (sin captura, se registra aquí).
+- **Unión al dominio por interfaz gráfica** (`sysdm.cpl`) con la cuenta de equipo **preconfigurada en DC01** en `OU=Servidores,OU=CiberNova` (`dsa.msc` → Nuevo → Equipo).
+- **Comprobación:** `Test-ComputerSecureChannel` → `True`; dominio `cibernova.local`; `gpresult /r /scope computer` → `CN=FS01,OU=Servidores,OU=CiberNova,DC=cibernova,DC=local` y GPO aplicadas desde DC01: `GPO_Servidores_Auditoria`, `Default Domain Policy`, `GPO_Dominio_CuentasServicio` y `GPO_Dominio_Firewall`.
+- **Roles por interfaz gráfica:** Servidor de archivos, Espacios de nombres DFS, Replicación DFS, Administrador de recursos del servidor de archivos (FSRM) y sus herramientas. Comprobado con `Get-WindowsFeature`.
+- **Espacio de nombres `\\cibernova.local\empresa`** (Administración de DFS): basado en dominio, modo Windows Server 2008, raíz `C:\DFSRoots\empresa` (recurso: administradores control total, resto solo lectura) y **ABE activado**. `Get-DfsnRoot` → `Domain V2`, `Online`, `Flags: Site Costing, AccessBased Enumeration`; destino `\\FS01.cibernova.local\empresa` `Online`.
+- **Disco de datos** (Administración de discos): inicializado en GPT, volumen simple NTFS **D: `Datos`** (formato rápido).
+- **Cuatro recursos compartidos ocultos con ABE:** carpetas `D:\Datos\Personales`, `Departamentos`, `Proyectos` y `Comun`; `Personales$` por interfaz gráfica y `Departamentos$`, `Proyectos$` y `Comun$` por PowerShell (`New-SmbShare ... -FullAccess <Usuarios autentificados> -FolderEnumerationMode AccessBased`). `Get-SmbShare` / `Get-SmbShareAccess` → los cuatro `AccessBased` y una sola entrada `NT AUTHORITY\Usuarios autentificados · Full`.
+
+**Problemas y soluciones:**
+- Problema: `Add-Computer ... -Credential (Get-Credential Administrador@cibernova.local)` → *"No se puede enlazar el argumento al parámetro 'Credential' porque es nulo"*. Se cerró la ventana de la credencial y no se llegó a intentar la unión. → Solución: unión por interfaz gráfica, con la cuenta del equipo creada antes en la OU Servidores (la interfaz no deja elegir la OU).
+- Problema: el disco de datos estaba añadido en VirtualBox pero sin inicializar (se dio por montado antes de tiempo). → Solución: inicializarlo y formatearlo en Administración de discos antes de crear las carpetas.
+- Nota: la carpeta del disco se creó como `D:\datos` (minúscula). Windows no distingue mayúsculas y el nombre que exige el Anexo I es el del espacio de nombres, así que se deja.
+
+**Decisiones (con el visto bueno de Max):**
+- **Disco de datos aparte de 150 GB, dinámico** (también en FS02). Motivo: separa datos y sistema; DFS-R, FSRM y las copias con VSS trabajan sobre su propio volumen. La suma de las cuotas personales del Anexo I es de 232 GB (65 × 2 GB + 20 × 5 GB + 4 × 0,5 GB): se asigna menos (**sobreasignación**), porque una cuota es un máximo y no un consumo previsto, y el disco se puede ampliar en caliente. Alternativas: 250 GB (cubre el 100 % de las cuotas, pero reserva espacio que no se usará) y 60 GB (menos de un tercio de las cuotas).
+- **Preconfigurar la cuenta de equipo en la OU Servidores antes de unir por interfaz gráfica.** Motivo: así FS01 recibe sus GPO desde el primer arranque. Alternativa: unir y mover la cuenta después (arrancaría sin la GPO de auditoría).
+- **Espacio de nombres de dominio en modo Windows Server 2008 con ABE.** Motivo: la ruta se guarda en AD y no depende de un solo servidor (FS02 se añadirá como segundo servidor del espacio de nombres); el modo 2008 es necesario para ABE, y ABE es obligatorio en el Anexo I.
+- **Cuatro recursos compartidos ocultos (uno por carpeta principal del Anexo I) en lugar de uno solo.** Motivo: cada bloque se replica, se copia y se audita por separado, y un problema en uno (por ejemplo, Personales) no afecta a los demás; además, encaja con las unidades H:, G:, P: y S:. El `$` obliga a entrar por la ruta redundante del dominio. Alternativa descartada: un solo recurso `Datos$`.
+- **Permisos del recurso compartido abiertos (*Usuarios autentificados*, Control total) y permisos reales solo en NTFS** (FS-07). Motivo: una sola capa que mantener y sin sorpresas al combinar las dos (manda la más restrictiva). Se quita *Todos*. Los permisos NTFS se pondrán con el script `06-carpetas-permisos.ps1` según la matriz P-01 a P-44; hasta entonces las carpetas heredan los de `D:\` (todavía no trabaja ningún usuario con ellas).
+- **Instalación de roles, espacio de nombres y disco por interfaz gráfica** (Oriol), para entender cada paso; las evidencias son las capturas y los comandos de comprobación.
+- **Recursos reales de FS01:** 4 GB de RAM y 50 GB de sistema (el diseño proponía 6 GB y 60 GB). FS02 llevará lo mismo.
+
+**Desfase:** No (adelanto: la sesión 3 preveía empezar FS01/FS02). D-05 sigue abierto (DC01 y DC02 sin importar).
+
+**Siguiente:**
+- Añadir las cuatro carpetas al espacio de nombres (`Personales`, `Departamentos`, `Proyectos`, `Comun` → `\\FS01\<Carpeta>$`).
+- Encender DC02 con DC01 y comprobar `repadmin /replsummary` (cuenta de FS01 y espacio de nombres).
+- Matriz de permisos P-01 a P-44 y script `06-carpetas-permisos.ps1`. FS02 con los mismos recursos.
+
 ### 2026-11-23 · Fuera de horario (clúster Pacemaker) · Max
 
 Servidor encendido fuera de horario con permiso del profesor (confirmado por Max). Se adelanta todo lo previsto para Max en la sesión 3 (24/11).

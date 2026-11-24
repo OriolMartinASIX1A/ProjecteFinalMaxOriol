@@ -1,7 +1,7 @@
 # Lista de tareas de la Fase 1 (control de requisitos)
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 1.6 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing: HV-07, HA-01 y HA-02 ✅) · v1.5 · 19/11/2026 (sesión 2 Linux: SQL Server configurado en LNX01, LNX02 y BKP01; BKP02 creada) · v1.4 · 19/11/2026 (DC02 promovido y comprobado en VirtualBox; reenviadores de DC02) · v1.3 · 19/11/2026 (reenviadores corregidos, revisión general de documentos, DC02 en VirtualBox)
+**Versión:** 1.7 · 23/11/2026 (FS01 en VirtualBox: unida al dominio, disco de datos, roles, espacio de nombres con ABE y cuatro recursos compartidos; DOM-01 y FS-01 parciales, FS-08 parcial) · v1.6 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing: HV-07, HA-01 y HA-02 ✅) · v1.5 · 19/11/2026 (sesión 2 Linux: SQL Server configurado en LNX01, LNX02 y BKP01; BKP02 creada) · v1.4 · 19/11/2026 (DC02 promovido y comprobado en VirtualBox; reenviadores de DC02) · v1.3 · 19/11/2026 (reenviadores corregidos, revisión general de documentos, DC02 en VirtualBox)
 
 > **Para qué sirve:** es la lista de todo lo que pide la práctica y en qué punto está. **Regla:** solo se marca ✅ lo que Max u Oriol han confirmado que está hecho (con su captura o comprobación). Todo lo demás está pendiente. Antes de dar por terminado un servicio o una máquina, se revisa esta lista.
 >
@@ -24,7 +24,7 @@
 | Servidor web | ⏳ ❓ aplicación sin decidir | ⏳ Pacemaker + VIP | ⏳ |
 | FTP/SFTP | ⏳ | ⏳ Pacemaker + VIP | ⏳ |
 | Base de datos | ✅ SQL Server 2025 configurado (19/11): Enterprise Developer en LNX01/LNX02, Express en BKP01, Always On activado | ⏳ AG + Pacemaker | ⏳ |
-| Ficheros con DFS | ⏳ | ⏳ DFS-N + DFS-R | ⏳ |
+| Ficheros con DFS | ⏳ FS01 (23/11, en VirtualBox): roles, espacio de nombres `\\cibernova.local\empresa` con ABE y cuatro recursos compartidos ocultos; faltan carpetas DFS, permisos y cuotas | ⏳ DFS-N + DFS-R (falta FS02) | ⏳ |
 | Usuarios y grupos con permisos y accesos | ✅ usuarios y grupos globales · ⏳ grupos `DL_`, permisos, carpetas, GPO | — | 15 pruebas del Anexo I ⏳ |
 | Backups | ⏳ | ⏳ BKP01 + BKP02 | Restauración ⏳ |
 
@@ -82,7 +82,7 @@
 
 | ID | Tarea | Quién | Estado | Notas |
 |---|---|---|---|---|
-| DOM-01 | FS01 y FS02 en la OU Servidores | Oriol | ⏳ | `Test-ComputerSecureChannel` 📸 |
+| DOM-01 | FS01 y FS02 en la OU Servidores | Oriol | ⏳ Parcial | **FS01 ✅ (23/11, en VirtualBox):** cuenta preconfigurada en `OU=Servidores,OU=CiberNova`, unión por interfaz gráfica, `Test-ComputerSecureChannel` → `True`, `gpresult` con las GPO de servidores 📸. FS02 ⏳ |
 | DOM-02 | LNX01, LNX02, BKP01, BKP02 con realmd + SSSD, solo `G_Admin_Sistemas` | Max | ⏳ | `realm list` 📸 · necesita Internet para `apt` ❓ |
 | DOM-03 | CLI01 y CLI02 en la OU Equipos | Oriol | ❓ | ¿uno se llama `BCN-RECEPCION`? ¿qué sede? ¿Windows 11 Pro/Education? |
 | DOM-04 | Host Proxmox (PROC) | — | ❓ | Propuesta: no se une |
@@ -92,14 +92,14 @@
 
 | ID | Tarea | Estado | Notas / evidencia |
 |---|---|---|---|
-| FS-01 | FS01 (.25) y FS02 (.26): instalación limpia (VirtualBox → OVA → Proxmox), disco de datos | ⏳ | Tamaño del disco de datos: propuesta del diseño, en revisión ❓ |
-| FS-02 | Espacio de nombres DFS de dominio `\\cibernova.local\empresa` con los nombres exactos del Anexo I (ap. 8) | ⏳ | El profesorado usa esos nombres en las pruebas |
+| FS-01 | FS01 (.25) y FS02 (.26): instalación limpia (VirtualBox → OVA → Proxmox), disco de datos | ⏳ Parcial | **FS01 ✅ en VirtualBox (23/11):** 2 vCPU, 4 GB, sistema 50 GB, **datos 150 GB dinámico** (D: `Datos`, GPT, NTFS), confirmado por Max y Oriol. Falta FS02 y la importación en Proxmox |
+| FS-02 | Espacio de nombres DFS de dominio `\\cibernova.local\empresa` con los nombres exactos del Anexo I (ap. 8) | ⏳ Parcial | Raíz creada el 23/11 (`Domain V2`, modo 2008, ABE) con destino FS01 📸. Recursos `Personales$`, `Departamentos$`, `Proyectos$`, `Comun$` creados. Faltan las carpetas DFS y FS02 como segundo servidor del espacio de nombres |
 | FS-03 | Replicación DFS-R FS01 ↔ FS02; FS01 con prioridad en las referencias | ⏳ | 📸 informe de estado de DFS-R |
-| FS-04 | Estructura de carpetas creada por script | ⏳ | Script nuevo (propuesta: `05-carpetas-permisos.ps1`) |
+| FS-04 | Estructura de carpetas creada por script | ⏳ | Script nuevo (propuesta: `06-carpetas-permisos.ps1`; el 05 ya es el de GPO). Las cuatro carpetas principales ya existen en `D:\Datos` |
 | FS-05 | **Matriz de permisos** P-01 a P-44 (carpetas en filas, grupos en columnas) | ⏳ | Entregable del inventario (Anexo I ap. 12) |
 | FS-06 | Grupos `DL_<Carpeta>_<Nivel>` y anidamiento `G_` → `DL_` (AGDLP) | ⏳ | Script; diagrama de anidamientos |
-| FS-07 | Permisos NTFS según la matriz; decisión recurso compartido vs NTFS justificada | ⏳ | |
-| FS-08 | Enumeración basada en acceso (ABE) en todos los recursos | ⏳ | Pruebas 3, 5, 14 |
+| FS-07 | Permisos NTFS según la matriz; decisión recurso compartido vs NTFS justificada | ⏳ Parcial | **Decisión (23/11, visto bueno de Max):** recurso compartido con *Usuarios autentificados* Control total y permisos reales solo en NTFS (bitácora 23/11). Falta aplicar los NTFS con el script |
+| FS-08 | Enumeración basada en acceso (ABE) en todos los recursos | ⏳ Parcial | ✅ En la raíz DFS y en los cuatro recursos de FS01 (`AccessBased`, 23/11) 📸. Falta FS02 · pruebas 3, 5, 14 |
 | FS-09 | Depósito `RRHH\Buzon_Documentacion` (P-10) e `Comun\Intercambio` (P-41) con CREATOR OWNER | ⏳ | Pruebas 7 y 8 |
 | FS-10 | Becarios con permisos reducidos sin denegaciones genéricas (P-17, P-21, P-31) y sin acceso nunca a Proyectos (P-38) | ⏳ | Decisión justificada |
 | FS-11 | Auditoría de acceso en `Nominas`, `Expedientes` y `Proyectos\Sanitario`, también para Sistemas (P-11, P-39) | ⏳ | SACL + GPO de auditoría avanzada · prueba 15 |
@@ -119,7 +119,7 @@
 | GPO-05 | Denegar inicio de sesión interactivo a `G_Cuentas_Servicio` | ✅ | `GPO_Dominio_CuentasServicio` (script 05 v1.1, 18/11), aplicada en DC01; script 94: 25 OK |
 | GPO-06 | Cuentas `adm.` sin inicio de sesión en equipos de usuarios | ⏳ | `GPO_Equipos_SinCuentasAdm` creada y vinculada (18/11); falta comprobarla en CLI01/CLI02 |
 | GPO-07 | Firewall de Windows por GPO (compensación de la red plana) | ✅ | `GPO_Dominio_Firewall` (18/11), aplicada en DC01 (3 perfiles activados); falta comprobarla en el resto al unirlos |
-| GPO-08 | Auditoría avanzada de acceso a archivos en FS01/FS02 | ⏳ | `GPO_Servidores_Auditoria` creada y vinculada (18/11); falta FS01/FS02 y las SACL de las carpetas (FS-11) |
+| GPO-08 | Auditoría avanzada de acceso a archivos en FS01/FS02 | ⏳ | `GPO_Servidores_Auditoria` creada y vinculada (18/11); **aplicada en FS01** (`gpresult`, 23/11). Falta FS02 y las SACL de las carpetas (FS-11) |
 
 ## 7. Clientes de prueba (Oriol)
 

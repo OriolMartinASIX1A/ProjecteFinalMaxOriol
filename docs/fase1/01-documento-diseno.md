@@ -2,7 +2,7 @@
 
 **Proyecto:** Plan de modernización tecnológica de CiberNova Solutions
 **Equipo:** Grupo 3 – Max (Linux) · Oriol (Windows)
-**Versión:** 0.9 (borrador) · 23/11/2026 · Clúster Pacemaker de 3 nodos sin qdevice; fencing con usuario de Proxmox de mínimo privilegio · v0.8 (19/11): BKP02 creada desde la instantánea `base-limpia` (sin SQL Server) · v0.7 (19/11): Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
+**Versión:** 0.10 (borrador) · 23/11/2026 · FS01: disco de datos de 150 GB justificado, recursos reales, cuatro recursos compartidos y permisos de recurso frente a NTFS · v0.9 (23/11): Clúster Pacemaker de 3 nodos sin qdevice; fencing con usuario de Proxmox de mínimo privilegio · v0.8 (19/11): BKP02 creada desde la instantánea `base-limpia` (sin SQL Server) · v0.7 (19/11): Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
 
 > Este documento recoge el análisis de necesidades, las decisiones técnicas con sus alternativas y el diseño de la infraestructura de la Fase 1. Es un documento vivo: cada cambio queda registrado en el historial de Git y, si supone un desfase, en la [bitácora](../gestion/bitacora.md).
 
@@ -128,6 +128,10 @@ Instalación: sistema de archivos ext4 sobre el RAID 10 por hardware (`/dev/sda`
 - DFS-R replica el contenido **y las ACL NTFS** entre los dos servidores.
 - **DFS-R no bloquea ficheros abiertos:** para evitar conflictos de edición simultánea, FS01 tiene prioridad en las referencias (todos los clientes trabajan contra FS01; FS02 es la réplica en caliente y toma el relevo si FS01 cae).
 - FSRM para cuotas (2 GB / 5 GB / 500 MB con aviso al 90 %); ABE en todos los recursos compartidos.
+- **Espacio de nombres en modo Windows Server 2008** (`Domain V2`), raíz en `C:\DFSRoots\empresa`, con ABE: el modo 2008 es el que permite ABE en el espacio de nombres (creado el 23/11 en FS01).
+- **Cuatro recursos compartidos ocultos** en el disco de datos: `Personales$`, `Departamentos$`, `Proyectos$` y `Comun$`, uno por carpeta principal del Anexo I y cada uno como carpeta del espacio de nombres. **Justificación:** cada bloque se replica, se copia y se audita por separado, y un problema en uno no afecta a los demás; encaja con las unidades H:, G:, P: y S:. El `$` obliga a entrar por `\\cibernova.local\empresa` (la ruta redundante). Alternativa descartada: un solo recurso `Datos$` (una única replicación DFS-R para todo).
+- **Permisos de recurso compartido abiertos y permisos reales en NTFS:** en el recurso, *Usuarios autentificados* con Control total (sin *Todos*); lo que puede hacer cada usuario lo deciden los permisos NTFS (matriz P-01 a P-44, modelo AGDLP). **Justificación:** una sola capa de permisos que mantener y sin sorpresas por la combinación de las dos (manda la más restrictiva). Alternativa descartada: permisos detallados también en el recurso (doble mantenimiento).
+- **Disco de datos aparte de 150 GB (dinámico) en FS01 y FS02:** la suma de las cuotas personales del Anexo I es de **232 GB** (65 × 2 GB + 20 × 5 GB + 4 × 0,5 GB, según `usuarios_cibernova.csv`). Una cuota es un límite máximo, no un consumo previsto, así que se asigna menos (**sobreasignación**): unos 100 GB para carpetas personales, unos 30 GB para Departamentos, Proyectos y Común, y el resto de margen para el *staging* de DFS-R y para no pasar del 80-85 % de ocupación. Se amplía en caliente si hace falta (`qm resize` + `Resize-Partition`) y FSRM avisa al 90 % de cada cuota. Alternativas descartadas: 250 GB (reserva espacio que no se usará y aumenta la sobreasignación del *thin pool*) y 60 GB (menos de un tercio de las cuotas). Disco separado del de sistema para que, si se llena, Windows siga funcionando y para que DFS-R, FSRM y las copias con VSS trabajen sobre su propio volumen.
 
 ### 3.9 Alta disponibilidad Linux: **Pacemaker + Corosync**
 
@@ -261,17 +265,18 @@ Recursos del host: 2× Xeon E5-2620 v2 (12 núcleos / 24 hilos), 128 GB RAM, 4×
 | DC02 | WS 2025 | 2 | 4 GB | 60 GB | — | 1 |
 | BKP01 | Ubuntu 24.04 | 2 | 4 GB | 40 GB | 250 GB | 2 |
 | BKP02 | Ubuntu 24.04 | 2 | 4 GB | 40 GB | 250 GB | 2 |
-| FS01 | WS 2025 | 2 | 6 GB | 60 GB | 150 GB | 3 |
-| FS02 | WS 2025 | 2 | 6 GB | 60 GB | 150 GB | 3 |
+| FS01 | WS 2025 | 2 | 4 GB | 50 GB | 150 GB | 3 |
+| FS02 | WS 2025 | 2 | 4 GB | 50 GB | 150 GB | 3 |
 | LNX01 | Ubuntu 24.04 | 4 | 8 GB | 40 GB | 60 GB | 4 |
 | LNX02 | Ubuntu 24.04 | 4 | 8 GB | 40 GB | 60 GB | 4 |
 | CLI01 | Windows 11 | 2 | 4 GB | 64 GB | — | 5 |
 | CLI02 | Windows 11 | 2 | 4 GB | 64 GB | — | 5 |
-| **Total** | | **24** | **52 GB** | | **~1,45 TB asignados** | |
+| **Total** | | **24** | **48 GB** | | **~1,45 TB asignados** | |
 
-- RAM: quedan ~76 GB libres para el host y para la Fase 2 (IA) y la Fase 3.
+- RAM: quedan ~80 GB libres para el host y para la Fase 2 (IA) y la Fase 3.
 - vCPU: 24 asignadas sobre 24 hilos; la carga real es baja, así que la sobreasignación no es problema.
 - **LNX01 (17/11):** se instaló con un disco de sistema de **60 GB** en vez de los 40 GB propuestos (57 GB útiles en `/`). Propuesta: dar también 60 GB a LNX02 para que la pareja sea simétrica **[PENDIENTE DE CONFIRMAR]**. Los recursos de la tabla siguen siendo propuestas en revisión.
+- **FS01 (23/11):** creada con **2 vCPU, 4 GB de RAM y 50 GB de sistema** (valores reales, la tabla se ajusta a ellos) y disco de datos de **150 GB** dinámico (confirmado por Max y Oriol, justificación en el apartado 3.8). FS02 llevará los mismos recursos.
 - Disco: aprovisionamiento fino (thin). Se vigilará el uso real del *thin pool* para que no supere el 80 %.
 
 ---
