@@ -2,7 +2,7 @@
 
 **Proyecto:** Plan de modernización tecnológica de CiberNova Solutions
 **Equipo:** Grupo 3 – Max (Linux) · Oriol (Windows)
-**Versión:** 0.11 (borrador) · 24/11/2026 · AG `sqlag_cibernova`: autenticación por certificado, *endpoint* `WITNESS` en BKP01, `pacemakerLogin` de mínimo privilegio, VIP .27 con colocación y orden · v0.10 (23/11) · FS01: disco de datos de 150 GB justificado, recursos reales, cuatro recursos compartidos y permisos de recurso frente a NTFS · v0.9 (23/11): Clúster Pacemaker de 3 nodos sin qdevice; fencing con usuario de Proxmox de mínimo privilegio · v0.8 (19/11): BKP02 creada desde la instantánea `base-limpia` (sin SQL Server) · v0.7 (19/11): Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
+**Versión:** 0.12 (borrador) · 24/11/2026 · FS02 como segundo servidor del espacio de nombres y DFS-R (un grupo por carpeta, FS01 principal) · v0.11 (24/11): AG `sqlag_cibernova`: autenticación por certificado, *endpoint* `WITNESS` en BKP01, `pacemakerLogin` de mínimo privilegio, VIP .27 con colocación y orden · v0.10 (23/11) · FS01: disco de datos de 150 GB justificado, recursos reales, cuatro recursos compartidos y permisos de recurso frente a NTFS · v0.9 (23/11): Clúster Pacemaker de 3 nodos sin qdevice; fencing con usuario de Proxmox de mínimo privilegio · v0.8 (19/11): BKP02 creada desde la instantánea `base-limpia` (sin SQL Server) · v0.7 (19/11): Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
 
 > Este documento recoge el análisis de necesidades, las decisiones técnicas con sus alternativas y el diseño de la infraestructura de la Fase 1. Es un documento vivo: cada cambio queda registrado en el historial de Git y, si supone un desfase, en la [bitácora](../gestion/bitacora.md).
 
@@ -125,7 +125,8 @@ Instalación: sistema de archivos ext4 sobre el RAID 10 por hardware (`/dev/sda`
 
 ### 3.8 Ficheros: **Windows Server + DFS-N (dominio) + DFS-R + FSRM**
 
-- Espacio de nombres de dominio `\\cibernova.local\empresa` con destinos en FS01 y FS02.
+- Espacio de nombres de dominio `\\cibernova.local\empresa` con destinos en FS01 y FS02. **FS01 y FS02 son los dos servidores del espacio de nombres** (24/11): la raíz no depende de un solo servidor.
+- **DFS-R con un grupo de replicación por carpeta** (Personales, Departamentos, Proyectos, Comun), coherente con los cuatro recursos compartidos; **FS01 como miembro principal** (manda en la replicación inicial), malla completa y replicación continua (dos servidores en la misma red). Probado el 24/11.
 - DFS-R replica el contenido **y las ACL NTFS** entre los dos servidores.
 - **DFS-R no bloquea ficheros abiertos:** para evitar conflictos de edición simultánea, FS01 tiene prioridad en las referencias (todos los clientes trabajan contra FS01; FS02 es la réplica en caliente y toma el relevo si FS01 cae).
 - FSRM para cuotas (2 GB / 5 GB / 500 MB con aviso al 90 %); ABE en todos los recursos compartidos.

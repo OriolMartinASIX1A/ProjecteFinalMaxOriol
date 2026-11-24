@@ -1,7 +1,7 @@
 # Memoria técnica de la infraestructura desplegada – Fase 1
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 0.12 · 24/11/2026 (AG de SQL Server en Pacemaker con VIP .27, apartado 2.3.8; FS01: carpetas del espacio de nombres y replicación con DC02, apartado 2.6) · v0.11 · 23/11/2026 (FS01 en VirtualBox: dominio, disco de datos, roles, espacio de nombres y recursos compartidos, apartado 2.6) · v0.10 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing, apartado 2.3.7) · v0.9 · 19/11/2026 (sesión 2 Linux: SQL Server configurado, BKP01 y BKP02, apartado 2.3.6) · v0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
+**Versión:** 0.13 · 24/11/2026 (FS02 y replicación DFS-R, apartado 2.7) · v0.12 · 24/11/2026 (AG de SQL Server en Pacemaker con VIP .27, apartado 2.3.8; FS01: carpetas del espacio de nombres y replicación con DC02, apartado 2.6) · v0.11 · 23/11/2026 (FS01 en VirtualBox: dominio, disco de datos, roles, espacio de nombres y recursos compartidos, apartado 2.6) · v0.10 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing, apartado 2.3.7) · v0.9 · 19/11/2026 (sesión 2 Linux: SQL Server configurado, BKP01 y BKP02, apartado 2.3.6) · v0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
 
 > Documento vivo: se amplía al terminar cada servicio. Lo marcado con **[PENDIENTE DE CONFIRMAR]** hay que verificarlo.
 
@@ -19,7 +19,8 @@
 | BKP01 | **Proxmox (VMID 130)**: clon personalizado (18/11), IP .30, **SQL Server 2025 Express**, **réplica de solo configuración del AG** (24/11) y tercer nodo Pacemaker | Proxmox | Apartados 2.3.4, 2.3.6 y 2.3.8 |
 | BKP02 | **Proxmox (VMID 131)**: clon de la instantánea `base-limpia` (sin SQL Server), personalizado, IP .31 | Proxmox | Apartado 2.3.6. Bareos pendiente |
 | FS01 | **Configuración base (23/11):** unida al dominio (OU Servidores), D: `Datos` de 150 GB, roles de ficheros, espacio de nombres `\\cibernova.local\empresa` con ABE y cuatro recursos compartidos ocultos | **VirtualBox** (pendiente de importar en Proxmox, VMID 125) | Apartado 2.6 |
-| FS02, clientes | Sin crear | — | — |
+| FS02 | **Configurada (24/11):** unida al dominio (OU Servidores), D: de 150 GB, roles, cuatro recursos compartidos, segundo servidor del espacio de nombres y **DFS-R con FS01** probada | **VirtualBox** (pendiente de importar en Proxmox, VMID 126) | Apartado 2.7 |
+| Clientes | Sin crear | — | — |
 
 > **Lista de todo lo pendiente** (requisitos del enunciado y del Anexo I, con su estado): [`docs/gestion/lista-tareas-fase1.md`](../gestion/lista-tareas-fase1.md).
 
@@ -522,7 +523,31 @@ Get-DfsnFolder -Path "\\cibernova.local\empresa\*" | ForEach-Object { Get-DfsnFo
 
 **8. Replicación con DC02 (24/11):** en DC01, `repadmin /syncall /AdeP` y `repadmin /replsummary` → 0 errores en las dos direcciones. En DC02, `Get-ADComputer FS01` → `OU=Servidores` y `Get-DfsnRoot` → `\\cibernova.local\empresa` `Online`: el espacio de nombres ya no depende solo de DC01. (Si se ponen dos comandos con objetos distintos en la misma línea, PowerShell muestra el segundo en blanco: ejecutarlos por separado.)
 
-**Pendiente en FS01:** subcarpetas del Anexo I, grupos `DL_` y permisos NTFS, SACL de auditoría, cuotas FSRM, DFS-R con FS02 e importación en Proxmox (VMID 125).
+**Pendiente en FS01:** subcarpetas del Anexo I, grupos `DL_` y permisos NTFS, SACL de auditoría, cuotas FSRM, prioridad en las referencias e importación en Proxmox (VMID 125). DFS-R con FS02: hecha (apartado 2.7).
+
+### 2.7 FS02 y replicación DFS-R (24/11, sesión 3, Oriol)
+
+FS02 se construye igual que FS01 (apartado 2.6), en VirtualBox y en el mismo equipo que los DC. **Instalación limpia desde la ISO**: un clon de FS01 tendría el mismo SID y daría problemas en el dominio. Mismos recursos que FS01 (2 vCPU, 4 GB, 50 GB de sistema y 150 GB de datos), porque es su pareja y debe poder asumir toda la carga.
+
+**1. Red y dominio** (mismos comandos que FS01, con `FS02` y la IP `192.168.202.26`). La consulta `Resolve-DnsName -Type SRV _ldap._tcp.dc._msdcs.cibernova.local` devuelve dc01 y dc02: Windows encuentra el dominio con esos registros, y salen los dos DC. Cuenta FS02 preconfigurada en DC01 en `OU=Servidores,OU=CiberNova` y unión por interfaz gráfica. `gpresult` → `CN=FS02,OU=Servidores,...` con las GPO de servidores.
+
+**2. Roles** (los mismos cuatro que FS01, por interfaz gráfica) y **recursos compartidos** (una línea; carpetas vacías, el contenido llega por DFS-R):
+```powershell
+$au=(New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-11').Translate([System.Security.Principal.NTAccount]).Value; foreach ($c in 'Personales','Departamentos','Proyectos','Comun') { New-Item -ItemType Directory -Force -Path "D:\Datos\$c" | Out-Null; New-SmbShare -Name ($c + '$') -Path "D:\Datos\$c" -FullAccess $au -FolderEnumerationMode AccessBased }
+```
+
+**3. Segundo servidor del espacio de nombres** (Administración de DFS → `\\cibernova.local\empresa` → Agregar servidor de espacio de nombres → `FS02`, raíz `C:\DFSRoots\empresa`, administradores control total y resto solo lectura). La pestaña *Servidores de espacio de nombres* muestra FS01 y FS02 habilitados: la raíz ya no depende de un solo servidor.
+
+**4. Replicación DFS-R:** en cada carpeta del espacio de nombres, *Agregar destino de carpeta* `\\FS02\<Carpeta>$` → *Sí* al grupo de replicación. Asistente: **FS01 como miembro principal** (en la replicación inicial manda su contenido; FS02 estaba vacía), **malla completa** y replicación **continua con ancho de banda completo**. Resultado: cuatro grupos de replicación, uno por carpeta (un problema en una no frena a las demás).
+
+**5. Prueba:**
+```powershell
+Update-DfsrConfigurationFromAD                                                    # en FS01 y FS02: leer ya la configuración de AD
+New-Item -Path "D:\Datos\Comun\prueba-replicacion.txt" -ItemType File -Value "Prueba DFS-R 24/11" -Force   # en FS01
+Get-ChildItem D:\Datos\Comun                                                    # en FS02: aparece el fichero (16:51)
+```
+
+**Pendiente:** FS01 con prioridad en las referencias (diseño 3.8: DFS-R no bloquea ficheros abiertos; destinos de FS02 como *Último entre todos los destinos*), borrar el fichero de prueba, informe de estado de DFS-R y prueba de caída (PR-03) cuando haya un cliente.
 
 ---
 
@@ -758,6 +783,6 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 - [ ] Carpetas personales (creadas por el script de alta), cuotas y perfiles (cuando esté el servidor de ficheros).
 - [x] Configurar el DNS de DC01 (script 04, 17/11; deshecho con el 84 y rehecho por la interfaz gráfica el 18/11; reenviadores 8.8.8.8 y 1.1.1.1).
 - [x] GPO de seguridad (script 05 v1.1, 18/11): 25 OK.
-- [ ] Unir todas las máquinas al dominio ([guía 07](07-guia-dominio-dc02-union.md)). **FS01 unida el 23/11** (apartado 2.6).
+- [ ] Unir todas las máquinas al dominio ([guía 07](07-guia-dominio-dc02-union.md)). **FS01 unida el 23/11** (apartado 2.6) y **FS02 el 24/11** (apartado 2.7).
 - [x] FS01 en VirtualBox: disco de datos, roles, espacio de nombres con ABE y cuatro recursos compartidos (23/11, apartado 2.6).
 - [ ] FS01: ~~carpetas DFS~~ (hecho el 24/11), permisos NTFS (script 06), auditoría y cuotas. FS02 y DFS-R.

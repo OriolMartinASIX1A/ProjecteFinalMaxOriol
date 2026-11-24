@@ -96,6 +96,29 @@ Registro continuo de decisiones, problemas, soluciones y desfases. Una entrada p
 
 ## Entradas
 
+### 2026-11-24 · Sesión 3 (FS02 y replicación DFS-R) · Oriol
+
+**Hecho (en VirtualBox, con DC01, DC02 y FS01 encendidos):**
+- **FS02 instalada desde cero** con la ISO de Windows Server 2025 (no se clona FS01: tendría el mismo SID). Mismos recursos que FS01: **2 vCPU, 4 GB de RAM, 50 GB de sistema y 150 GB de datos** dinámicos; adaptador puente. Disco de datos montado como **D:**.
+- **Red:** zona horaria, nombre `FS02`, IP 192.168.202.26/22, puerta 192.168.200.254, DNS .23 y .24. `Resolve-DnsName -Type SRV _ldap._tcp.dc._msdcs.cibernova.local` → dc01 y dc02 📸. Esta consulta comprueba que FS02 encuentra los controladores de dominio por DNS (Windows localiza el dominio con esos registros SRV); salen los dos, así que el dominio se puede encontrar aunque caiga uno.
+- **Unión al dominio** igual que FS01: cuenta **FS02 preconfigurada en DC01** en `OU=Servidores,OU=CiberNova` y unión por interfaz gráfica (`sysdm.cpl`, `Administrador@cibernova.local`). `gpresult` → `CN=FS02,OU=Servidores,OU=CiberNova,...` y GPO desde DC01: `GPO_Servidores_Auditoria`, `Default Domain Policy`, `GPO_Dominio_CuentasServicio`, `GPO_Dominio_Firewall` 📸.
+- **Roles** por interfaz gráfica (los mismos cuatro que FS01) → `Get-WindowsFeature`: los cuatro `Installed` 📸.
+- **Recursos compartidos** por PowerShell, una línea: carpetas `D:\Datos\{Personales, Departamentos, Proyectos, Comun}` y `New-SmbShare ... -FullAccess <Usuarios autentificados> -FolderEnumerationMode AccessBased` → los cuatro `AccessBased` 📸. Las carpetas quedan vacías: el contenido llega por DFS-R.
+- **FS02 como segundo servidor del espacio de nombres** (Administración de DFS → Agregar servidor de espacio de nombres; raíz `C:\DFSRoots\empresa`, administradores control total y resto solo lectura). Pestaña *Servidores de espacio de nombres*: `\\FS01.cibernova.local\empresa` y `\\FS02.cibernova.local\empresa`, los dos *Habilitada* 📸.
+- **Destinos de FS02 y replicación DFS-R:** en cada carpeta, *Agregar destino de carpeta* `\\FS02\<Carpeta>$` → *Sí* al grupo de replicación; asistente con **FS01 como miembro principal**, topología de **malla completa** y replicación **continua con ancho de banda completo**. Resultado: cuatro grupos de replicación (`cibernova.local\empresa\comun`, `\departamentos`, `\personales`, `\proyectos`) 📸.
+- **Prueba de replicación:** `Update-DfsrConfigurationFromAD` en FS01 y FS02; en FS01 se crea `D:\Datos\Comun\prueba-replicacion.txt` (16:51) y en FS02 `Get-ChildItem D:\Datos\Comun` lo muestra (18 bytes, 16:51) 📸 (`2026-11-24_casa_fs02_dfsr-prueba`). Llega en menos de 3 minutos.
+
+**Decisiones:**
+- **FS02 con los mismos recursos que FS01** (pareja simétrica): si FS01 cae, FS02 asume toda la carga y necesita el mismo espacio para la réplica.
+- **FS02 como segundo servidor del espacio de nombres:** sin él, si cae FS01 nadie podría abrir `\\cibernova.local\empresa` aunque FS02 tuviera los datos. Así la propia raíz es redundante.
+- **Un grupo de replicación por carpeta**, coherente con los cuatro recursos compartidos (decisión del 23/11): un problema en una carpeta no frena la replicación de las demás.
+- **FS01 como miembro principal:** en la replicación inicial manda el contenido del principal; FS02 estaba vacía. Alternativa descartada: elegir FS02 (dejaría vacías las carpetas de FS01).
+- **Malla completa y replicación continua:** con dos servidores en la misma red no hace falta limitar horarios ni ancho de banda.
+
+**Desfase:** No (adelanto: FS01/FS02 y DFS-R estaban previstos para la sesión 3 ya importados en Proxmox; se han hecho en VirtualBox). D-05 sigue abierto: los cuatro Windows siguen en VirtualBox.
+
+**Siguiente (26/11):** FS01 con prioridad en las referencias (destinos de FS02 como *Último entre todos los destinos*, porque DFS-R no bloquea ficheros abiertos); borrar `prueba-replicacion.txt`; matriz de permisos P-01 a P-44 y script `06-carpetas-permisos.ps1`.
+
 ### 2026-11-24 · Sesión 3 (AG de SQL Server) · Max
 
 **Hecho:**
