@@ -2,7 +2,7 @@
 
 **Proyecto:** Plan de modernización tecnológica de CiberNova Solutions
 **Equipo:** Grupo 3 – Max (Linux) · Oriol (Windows)
-**Versión:** 0.12 (borrador) · 24/11/2026 · FS02 como segundo servidor del espacio de nombres y DFS-R (un grupo por carpeta, FS01 principal) · v0.11 (24/11): AG `sqlag_cibernova`: autenticación por certificado, *endpoint* `WITNESS` en BKP01, `pacemakerLogin` de mínimo privilegio, VIP .27 con colocación y orden · v0.10 (23/11) · FS01: disco de datos de 150 GB justificado, recursos reales, cuatro recursos compartidos y permisos de recurso frente a NTFS · v0.9 (23/11): Clúster Pacemaker de 3 nodos sin qdevice; fencing con usuario de Proxmox de mínimo privilegio · v0.8 (19/11): BKP02 creada desde la instantánea `base-limpia` (sin SQL Server) · v0.7 (19/11): Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
+**Versión:** 0.14 (borrador) · 27/11/2026 · Ficheros y permisos (Oriol, 26/11): FS01 con prioridad `GlobalLow`, permisos AGDLP aplicados, carpetas personales, cuotas, perfiles móviles en DFS, GPO de unidades y de redirección por grupo (3.8, 8.2) · v0.13 (borrador) · 27/11/2026 · Sesión 4 Linux: conmutación del AG probada y tiempos medidos (3.5, 7, 9.3), Apache en Pacemaker con la VIP (opción A, 3.6), usuario `web_cibernova`, firewall `ufw` en los Linux (3.11) y riesgos nuevos · v0.12 (borrador) · 24/11/2026 · FS02 como segundo servidor del espacio de nombres y DFS-R (un grupo por carpeta, FS01 principal) · v0.11 (24/11): AG `sqlag_cibernova`: autenticación por certificado, *endpoint* `WITNESS` en BKP01, `pacemakerLogin` de mínimo privilegio, VIP .27 con colocación y orden · v0.10 (23/11) · FS01: disco de datos de 150 GB justificado, recursos reales, cuatro recursos compartidos y permisos de recurso frente a NTFS · v0.9 (23/11): Clúster Pacemaker de 3 nodos sin qdevice; fencing con usuario de Proxmox de mínimo privilegio · v0.8 (19/11): BKP02 creada desde la instantánea `base-limpia` (sin SQL Server) · v0.7 (19/11): Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
 
 > Este documento recoge el análisis de necesidades, las decisiones técnicas con sus alternativas y el diseño de la infraestructura de la Fase 1. Es un documento vivo: cada cambio queda registrado en el historial de Git y, si supone un desfase, en la [bitácora](../gestion/bitacora.md).
 
@@ -107,6 +107,7 @@ Instalación: sistema de archivos ext4 sobre el RAID 10 por hardware (`/dev/sda`
 - **Licencia:** Enterprise Developer es gratuita y tiene toda la funcionalidad de Enterprise, pero **solo para desarrollo y pruebas**. Se justifica por tratarse de un laboratorio; en producción CiberNova adquiriría licencias Enterprise.
 - **Alta disponibilidad:** Availability Group con commit síncrono entre LNX01 y LNX02, conmutación automática con **Pacemaker + Corosync**, **réplica de solo configuración** (SQL Server Express) en BKP01 como tercer voto, y **fencing con `fence_pve`** contra la API de Proxmox.
 - **Implementación (24/11):** AG **`sqlag_cibernova`** (`CLUSTER_TYPE = EXTERNAL`; nombre distinto del listener `sqlag` para no confundir el grupo con la dirección de conexión). Las réplicas se autentican con un **certificado** (`dbm_certificate`, caduca el 31/12/2028) y no con cuentas del dominio, así el AG no depende de AD. *Endpoints* en el puerto **5022** con cifrado AES; en BKP01 el *endpoint* es `WITNESS` (único rol válido en Express). Pacemaker entra en SQL Server con **`pacemakerLogin`**, con permisos solo sobre el AG (`ALTER`, `CONTROL`, `VIEW DEFINITION`) y `VIEW SERVER STATE`, no con `sa`. Recurso `ag_cluster` (`ocf:mssql:ag`, promocionable) y VIP .27 (`IPaddr2`) con colocación `INFINITY` con la réplica principal y orden *promover → arrancar VIP*.
+- **Pruebas (26/11):** base de datos `cibernova_pruebas` en el AG con *seeding* automático; conmutación manual con `pcs resource move ... --promoted` (nunca con `ALTER AVAILABILITY GROUP ... FAILOVER`, porque con `CLUSTER_TYPE = EXTERNAL` manda Pacemaker) y caída real de LNX01 (`qm stop`): *fencing*, promoción de LNX02 y VIP en LNX02 en **≈ 36 s, sin pérdida de datos**. **Sin preferencia de nodo** para la réplica principal (decisión de Max): con `prefers lnx01`, la vuelta de LNX01 tras una caída provocaría otro corte de unos 30 s. Los saltos de `IDENTITY` tras cada conmutación (caché de 1000 valores) se aceptan y se documentan.
 
 ### 3.6 Web: **Apache 2.4 (mpm_event + PHP-FPM)**
 
@@ -117,6 +118,16 @@ Instalación: sistema de archivos ext4 sobre el RAID 10 por hardware (`/dev/sda`
 
 - Conexión a SQL Server con el driver ODBC de Microsoft y la extensión `sqlsrv`/`pdo_sqlsrv`.
 - Apache es un recurso de Pacemaker (`ocf:heartbeat:apache`): si el servicio falla, se mueve de nodo aunque la máquina siga viva.
+- **Implementación (26/11, opción A, decisión de Max):** un solo Apache activo, siempre en el nodo de la VIP y de la réplica principal (colocación `INFINITY` con `virtualip`, orden VIP → Apache y `avoids bkp01`); `apache2` fuera del arranque de systemd; PHP-FPM activo en los dos nodos.
+
+| Alternativa para Apache en el clúster | Por qué no |
+|---|---|
+| B. Apache clonado en LNX01 y LNX02 | Más reglas y dos Apache que vigilar para ganar ≈ 1 s: de los 35 s de una conmutación, Apache solo tarda 1 s en arrancar (22 s son la promoción del AG) |
+| C. Apache fuera de Pacemaker (systemd) | Un Apache caído no se detectaría y la VIP podría quedarse en un nodo sin web (punto único de fallo escondido) |
+| Recurso `systemd:apache2` | Solo comprueba que el servicio está arrancado; `ocf:heartbeat:apache` pide `server-status` y detecta un Apache colgado |
+
+- **Acceso a la base de datos:** login de SQL Server **`web_cibernova`** con `db_datareader` y `db_datawriter` en su base de datos, creado en LNX01 y LNX02 **con el mismo SID** (los *logins* no viajan con el AG; con SID distintos el usuario quedaría huérfano tras conmutar). La web se conecta siempre a la **VIP**. Credenciales en `/etc/cibernova/web.ini` (`640 root:www-data`), fuera de la carpeta web. Mejora prevista: `svc_web` del dominio cuando estén los DC en Proxmox.
+- **Aplicación definitiva** [PENDIENTE DE CONFIRMAR]: de momento, página de prueba `bbdd.php` que escribe y lee en el AG por la VIP.
 
 ### 3.7 FTP/SFTP: **OpenSSH (SFTP con chroot)**
 
@@ -128,8 +139,10 @@ Instalación: sistema de archivos ext4 sobre el RAID 10 por hardware (`/dev/sda`
 - Espacio de nombres de dominio `\\cibernova.local\empresa` con destinos en FS01 y FS02. **FS01 y FS02 son los dos servidores del espacio de nombres** (24/11): la raíz no depende de un solo servidor.
 - **DFS-R con un grupo de replicación por carpeta** (Personales, Departamentos, Proyectos, Comun), coherente con los cuatro recursos compartidos; **FS01 como miembro principal** (manda en la replicación inicial), malla completa y replicación continua (dos servidores en la misma red). Probado el 24/11.
 - DFS-R replica el contenido **y las ACL NTFS** entre los dos servidores.
-- **DFS-R no bloquea ficheros abiertos:** para evitar conflictos de edición simultánea, FS01 tiene prioridad en las referencias (todos los clientes trabajan contra FS01; FS02 es la réplica en caliente y toma el relevo si FS01 cae).
-- FSRM para cuotas (2 GB / 5 GB / 500 MB con aviso al 90 %); ABE en todos los recursos compartidos.
+- **DFS-R no bloquea ficheros abiertos:** para evitar conflictos de edición simultánea, FS01 tiene prioridad en las referencias (todos los clientes trabajan contra FS01; FS02 es la réplica en caliente y toma el relevo si FS01 cae). **Aplicado el 26/11:** destinos de FS02 como *Último de todos los destinos* (`GlobalLow`). Alternativa descartada: *Último de los destinos de igual costo* (`SiteCostLow`), que dejaría de garantizar el orden si se crean sitios de AD por sede.
+- FSRM para cuotas (2 GB / 5 GB / 500 MB con aviso al 90 %); ABE en todos los recursos compartidos. **Aplicado el 26/11** (script 07): cuotas por carpeta personal con límite estricto, en FS01 **y en FS02** (las cuotas de FSRM son de cada servidor y no se replican). El aviso al 90 % queda como evento del servidor; avisar por correo necesitaría un servidor SMTP [PENDIENTE DE CONFIRMAR si basta].
+- **Carpetas personales:** el usuario tiene Modificar directamente en su carpeta (única excepción a AGDLP, porque la carpeta es suya); SYSTEM y Administradores con control total para administrarla y copiarla; nadie más. La unidad H: se asigna en la cuenta de AD.
+- **Perfiles móviles (Dirección y Comercial) en una quinta carpeta DFS, `Perfiles`**, con destinos FS01 y FS02 y la misma prioridad de FS01. **Justificación:** el perfil también debe sobrevivir a la caída de FS01, y Microsoft solo admite perfiles móviles sobre DFS-R si se usa un único destino a la vez, que es justo lo que garantiza la prioridad. Alternativa descartada: perfiles solo en FS01 (punto único de fallo).
 - **Espacio de nombres en modo Windows Server 2008** (`Domain V2`), raíz en `C:\DFSRoots\empresa`, con ABE: el modo 2008 es el que permite ABE en el espacio de nombres (creado el 23/11 en FS01).
 - **Cuatro recursos compartidos ocultos** en el disco de datos: `Personales$`, `Departamentos$`, `Proyectos$` y `Comun$`, uno por carpeta principal del Anexo I y cada uno como carpeta del espacio de nombres. **Justificación:** cada bloque se replica, se copia y se audita por separado, y un problema en uno no afecta a los demás; encaja con las unidades H:, G:, P: y S:. El `$` obliga a entrar por `\\cibernova.local\empresa` (la ruta redundante). Alternativa descartada: un solo recurso `Datos$` (una única replicación DFS-R para todo).
 - **Permisos de recurso compartido abiertos y permisos reales en NTFS:** en el recurso, *Usuarios autentificados* con Control total (sin *Todos*); lo que puede hacer cada usuario lo deciden los permisos NTFS (matriz P-01 a P-44, modelo AGDLP). **Justificación:** una sola capa de permisos que mantener y sin sorpresas por la combinación de las dos (manda la más restrictiva). Alternativa descartada: permisos detallados también en el recurso (doble mantenimiento).
@@ -167,11 +180,13 @@ Todas las VMs están en la red del aula (192.168.200.0/22), con IPs del rango as
 **Motivo:** cumple todos los requisitos de la Fase 1, usa las IPs asignadas por el profesorado y concentra el tiempo en los servicios obligatorios y su redundancia.
 
 **Medidas que compensan la falta de segmentación:**
-- Firewall de cada servidor: Firewall de Windows (por GPO) y `ufw`/nftables en Ubuntu, abriendo solo los puertos de cada servicio.
+- Firewall de cada servidor: Firewall de Windows (por GPO) y **`ufw`** en Ubuntu (26/11: LNX01 y BKP01; LNX02 pendiente), abriendo solo los puertos de cada servicio: 22/tcp desde la red del aula, 80/tcp en los nodos web, y Corosync (5405/udp), `pcsd` (2224/tcp), *endpoint* del AG (5022/tcp) y SQL Server (1433/tcp) solo entre .28, .29 y .30.
 - La base de datos solo acepta conexiones de los nodos web y de BKP01.
 - Cuentas de servicio con mínimo privilegio y sin inicio de sesión interactivo.
 
 **Mejora prevista para la Fase 3:** la auditoría detectará previsiblemente la red plana como hallazgo ("sin segmentación de red"). Se planifica como **remediación** de la Fase 3: separar en VLAN al menos servidores, DMZ web y clientes, con un firewall redundante, y verificarlo en el re-test. Esto se recoge en la previsión del plan de mejora.
+
+**OPNsense valorado de nuevo (26/11):** no sustituye al firewall de cada servidor, porque solo filtra el tráfico que pasa a través de él y en la red plana los servidores hablan directamente. Exigiría segmentar la red (VLAN o el puente `vmbr1`), cambiar la IP de todas las VMs (clúster, AG, VIP, DNS) y 2 VMs en HA con unas 3 direcciones más del aula, y el rango .23–.33 ya está todo asignado. Se mantiene para la Fase 3 [PENDIENTE DE CONFIRMAR si lo pide el profesorado].
 
 **[PENDIENTE DE CONFIRMAR]:** preguntar al profesorado si espera VLAN en la Fase 1 aunque no figure en los documentos.
 
@@ -290,8 +305,8 @@ Recursos del host: 2× Xeon E5-2620 v2 (12 núcleos / 24 hilos), 128 GB RAM, 4×
 | AD DS | 2 DC, replicación multimaestro | El otro DC autentica; los clientes usan el DNS secundario | Apagar DC01 → iniciar sesión en un cliente |
 | DNS | Integrado en AD en ambos DC | Los clientes consultan el segundo DNS | `nslookup` con DC01 apagado |
 | Ficheros | DFS-N de dominio + DFS-R | Las referencias DFS llevan al cliente a FS02 | Apagar FS01 → abrir `\\cibernova.local\empresa` |
-| BBDD | AG síncrono + Pacemaker + config-only en BKP01 | Pacemaker promociona la secundaria y mueve la VIP | Apagar LNX01 → la web sigue consultando la BBDD |
-| Web / SFTP | Apache y SFTP en ambos nodos + VIP | La VIP salta al nodo superviviente | Apagar LNX01 → recargar la web |
+| BBDD | AG síncrono + Pacemaker + config-only en BKP01 | Pacemaker hace *fencing*, promociona la secundaria y mueve la VIP | Apagar LNX01 → la web sigue consultando la BBDD · **✅ 26/11: ≈ 36 s, 0 datos perdidos** |
+| Web / SFTP | Apache (recurso de Pacemaker con la VIP) y SFTP en ambos nodos | Apache arranca en el nodo superviviente junto con la VIP | Apagar LNX01 → recargar la web · **✅ web 26/11: ≈ 29 s** · SFTP ⏳ |
 | DHCP | Kea HA hot-standby | El nodo en espera toma el relevo | Apagar LNX01 → `ipconfig /renew` en un cliente |
 | Backups | Dos servidores Bareos con *copy jobs* | Las copias siguen disponibles en BKP02; se promociona su Director (manual) | Restaurar desde BKP02 con BKP01 apagado |
 
@@ -345,7 +360,8 @@ cibernova.local
 
 ### 8.2 Principios
 
-- Modelo **AGDLP**: usuarios → `G_*` (globales) → `DL_<Carpeta>_<Nivel>` (dominio local) → ACL. Los `DL_` se crearán con el servidor de ficheros.
+- Modelo **AGDLP**: usuarios → `G_*` (globales) → `DL_<Carpeta>_<Nivel>` (dominio local) → ACL. **Creados el 26/11:** 63 grupos `DL_` y el global `G_RRHH_Nominas_Consulta` con el script 06; matriz completa en [`08-matriz-permisos.md`](08-matriz-permisos.md).
+- **GPO de usuario vinculadas a la OU CiberNova con filtrado por grupo** (26/11): `GPO_Usuarios_Unidades` (G:, P: y S: con destino por grupo) y `GPO_Usuarios_Redireccion` (solo `G_Sede_*`, denegada a `G_Direccion` y `G_Comercial`). **Cambio respecto a la idea inicial de vincularlas por OU de departamento:** con grupos, la GPO sigue a la persona aunque cambie de departamento y no hace falta repetir el vínculo en diez OU. Alternativa descartada: una GPO de redirección por OU de departamento.
 - Los **becarios** no se meten en el grupo de su departamento: van a `G_Becarios` y a `G_Becarios_<Departamento>`, que recibirán solo los permisos reducidos (sin denegaciones).
 - Directivas de contraseña: la general con `Set-ADDefaultDomainPasswordPolicy` y la de 15 caracteres con la **PSO `PSO_CiberNova_15`** aplicada al grupo `G_Politica_15` (Dirección, Sistemas y cuentas adm.).
 - Alta mediante **scripts PowerShell idempotentes** que leen `usuarios_cibernova.csv` (UTF-8, `;`): [`01-crear-ou-grupos.ps1`](../../scripts/windows/01-crear-ou-grupos.ps1) y [`02-alta-usuarios.ps1`](../../scripts/windows/02-alta-usuarios.ps1).
@@ -380,6 +396,8 @@ cibernova.local
 | RPO base de datos | 15 min (copias de log) |
 | RTO restauración de una carpeta | < 30 min |
 | RTO reconstrucción de un servidor | < 4 h |
+
+**Medido el 26/11 (base de datos y web en alta disponibilidad):** RPO **0** (commit síncrono: ninguna fila perdida en tres conmutaciones) y RTO de **≈ 29–36 s** por conmutación, de los que ≈ 22 s son la promoción del AG (comprobación de que la nueva principal tiene todas las transacciones). Propuesta de objetivo [PENDIENTE DE CONFIRMAR]: **RTO < 1 min** para BBDD y web ante la caída de un nodo.
 
 ### 9.4 Cuenta `svc_backup`
 
@@ -416,6 +434,9 @@ Los servidores solo pueden estar encendidos en horario de proyecto y el centro p
 | Clones de VM con identificadores repetidos (`machine-id`, claves SSH, IP) | Media | Alto | Personalizar cada clon antes de conectarlo con el original encendido (memoria técnica 2.3.4) |
 | DC duplicado o restaurado desde una copia antigua tras la importación | Baja | Muy alto | Importar cada DC una sola vez y apagar definitivamente la copia de VirtualBox |
 | Contraseña de `pacemakerLogin` en texto plano en `/var/opt/mssql/secrets/passwd` (lo exige el agente de Microsoft) | Baja | Medio | Riesgo aceptado: fichero `root` con permisos `400` en cada nodo; el login solo tiene permisos sobre el AG |
+| Conmutación del AG de unos 30 s (la promoción tarda ≈ 22 s) | Cierta | Bajo | Aceptado: es el precio de RPO 0. Medido el 26/11; posible ajuste de tiempos del agente en la Fase 3 |
+| La web confía en el certificado autofirmado de SQL Server (`TrustServerCertificate=yes`) y la contraseña de `web_cibernova` está en `/etc/cibernova/web.ini` | Baja | Medio | Riesgo aceptado: conexión cifrada igualmente, fichero `640 root:www-data` fuera de la carpeta web y login con permisos mínimos. Fase 3: certificado propio para SQL Server |
+| Contenido web distinto en LNX01 y LNX02 (se copia a mano) | Media | Medio | Comprobación con `ls -l`; elegir método de despliegue con la aplicación definitiva (WEB-03) |
 | Contraseña de `fence@pve` guardada en la configuración de Pacemaker (CIB) y `ssl_insecure=1` (certificado autofirmado de Proxmox) | Baja | Medio | Riesgo aceptado: `fence@pve` solo puede encender y apagar las VMs 128–130. Fase 3: instalar la CA de Proxmox en los nodos y quitar `ssl_insecure` |
 
 ---

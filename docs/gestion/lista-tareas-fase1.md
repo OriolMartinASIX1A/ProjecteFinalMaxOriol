@@ -1,7 +1,7 @@
 # Lista de tareas de la Fase 1 (control de requisitos)
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 1.9 · 24/11/2026 (FS02 unida y configurada, DFS-R FS01 ↔ FS02 probada: DOM-01 ✅, FS-02 y FS-08 ✅ en VirtualBox, FS-03 parcial) · v1.8 · 24/11/2026 (AG `sqlag_cibernova` en Pacemaker con VIP .27: DB-03 y HA-03 ✅, DB-04 parcial; FS01: carpetas del espacio de nombres, FS-02 parcial) · v1.7 · 23/11/2026 (FS01 en VirtualBox: unida al dominio, disco de datos, roles, espacio de nombres con ABE y cuatro recursos compartidos; DOM-01 y FS-01 parciales, FS-08 parcial) · v1.6 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing: HV-07, HA-01 y HA-02 ✅) · v1.5 · 19/11/2026 (sesión 2 Linux: SQL Server configurado en LNX01, LNX02 y BKP01; BKP02 creada) · v1.4 · 19/11/2026 (DC02 promovido y comprobado en VirtualBox; reenviadores de DC02) · v1.3 · 19/11/2026 (reenviadores corregidos, revisión general de documentos, DC02 en VirtualBox)
+**Versión:** 1.10 · 27/11/2026 (V21 conjunta. **Oriol, 26–27/11:** permisos P-01 a P-44 aplicados con los scripts 06 y 96; carpetas personales y cuotas con el script 07; Perfiles en DFS; GPO de unidades y de redirección; OVA de los Windows exportadas: FS-03 a FS-11, FS-13 y GPO-08 ✅, FS-12, GPO-01/02/04, AD-11b y FS-01 parciales. **Max,** sesión 4 Linux, 26/11: base de datos en el AG y conmutación manual y automática probadas; Apache + PHP-FPM con los drivers de SQL Server; Apache en Pacemaker con la VIP; usuario `web_cibernova`; firewall `ufw` en LNX01 y BKP01: DB-04, WEB-02 y WEB-04 ✅, PR-04 parcial, LNX-06 y DB-06 parciales) · v1.9 · 24/11/2026 (FS02 unida y configurada, DFS-R FS01 ↔ FS02 probada: DOM-01 ✅, FS-02 y FS-08 ✅ en VirtualBox, FS-03 parcial) · v1.8 · 24/11/2026 (AG `sqlag_cibernova` en Pacemaker con VIP .27: DB-03 y HA-03 ✅, DB-04 parcial; FS01: carpetas del espacio de nombres, FS-02 parcial) · v1.7 · 23/11/2026 (FS01 en VirtualBox: unida al dominio, disco de datos, roles, espacio de nombres con ABE y cuatro recursos compartidos; DOM-01 y FS-01 parciales, FS-08 parcial) · v1.6 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing: HV-07, HA-01 y HA-02 ✅) · v1.5 · 19/11/2026 (sesión 2 Linux: SQL Server configurado en LNX01, LNX02 y BKP01; BKP02 creada) · v1.4 · 19/11/2026 (DC02 promovido y comprobado en VirtualBox; reenviadores de DC02) · v1.3 · 19/11/2026 (reenviadores corregidos, revisión general de documentos, DC02 en VirtualBox)
 
 > **Para qué sirve:** es la lista de todo lo que pide la práctica y en qué punto está. **Regla:** solo se marca ✅ lo que Max u Oriol han confirmado que está hecho (con su captura o comprobación). Todo lo demás está pendiente. Antes de dar por terminado un servicio o una máquina, se revisa esta lista.
 >
@@ -21,11 +21,11 @@
 | Identidades (AD DS) | ✅ DC01 (OU, grupos, usuarios, cuentas especiales) · ✅ DC02 promovido (19/11, en VirtualBox) | ✅ Replicación DC01 ↔ DC02 | ⏳ |
 | DNS | ✅ DC01 (interfaz gráfica + reenviadores 8.8.8.8 / 1.1.1.1) | ✅ DC02 (zonas replicadas, reenviadores 8.8.8.8 / 1.1.1.1, DNS cruzado) | ⏳ |
 | DHCP | ⏳ ❓ permiso del profesorado | ⏳ Kea HA | ⏳ |
-| Servidor web | ⏳ ❓ aplicación sin decidir | ⏳ Pacemaker + VIP | ⏳ |
+| Servidor web | ✅ Apache 2.4 (`mpm_event`) + PHP-FPM 8.3 + `sqlsrv`/`pdo_sqlsrv` en LNX01 y LNX02 (26/11), página de prueba `bbdd.php` contra el AG por la VIP · ❓ aplicación definitiva sin decidir | ✅ Apache como recurso de Pacemaker con la VIP .27 y la réplica principal (26/11) | ✅ Conmutación con toda la cadena: ≈ 29 s sin servicio, sin pérdida de datos (26/11) |
 | FTP/SFTP | ⏳ | ⏳ Pacemaker + VIP | ⏳ |
-| Base de datos | ✅ SQL Server 2025 configurado (19/11): Enterprise Developer en LNX01/LNX02, Express en BKP01, Always On activado | ✅ AG `sqlag_cibernova` en Pacemaker con VIP .27 (24/11) · ⏳ prueba de conmutación | ⏳ |
-| Ficheros con DFS | ✅ FS01 y FS02 (23–24/11, en VirtualBox): espacio de nombres `\\cibernova.local\empresa` con ABE y cuatro carpetas · ⏳ permisos NTFS y cuotas | ✅ DFS-N con dos servidores + DFS-R (4 grupos, prueba OK) · ⏳ prioridad de FS01 en las referencias | ⏳ |
-| Usuarios y grupos con permisos y accesos | ✅ usuarios y grupos globales · ⏳ grupos `DL_`, permisos, carpetas, GPO | — | 15 pruebas del Anexo I ⏳ |
+| Base de datos | ✅ SQL Server 2025 configurado (19/11): Enterprise Developer en LNX01/LNX02, Express en BKP01, Always On activado | ✅ AG `sqlag_cibernova` en Pacemaker con VIP .27 (24/11) y base de datos `cibernova_pruebas` sincronizada (26/11) | ✅ Conmutación manual y caída de LNX01 (`qm stop`): ≈ 36 s sin servicio, RPO 0 (26/11) |
+| Ficheros con DFS | ✅ FS01 y FS02 (23–24/11, en VirtualBox): espacio de nombres `\\cibernova.local\empresa` con ABE y cuatro carpetas · ✅ permisos NTFS (matriz P-01 a P-44), carpetas personales y cuotas (26/11) | ✅ DFS-N con dos servidores + DFS-R (5 grupos con Perfiles, prueba OK) · ✅ prioridad de FS01 (`GlobalLow`) | ⏳ PR-03 |
+| Usuarios y grupos con permisos y accesos | ✅ usuarios y grupos globales · ✅ 63 grupos `DL_`, permisos, carpetas personales, GPO de unidades y redirección (26/11) · ⏳ perfil obligatorio y clientes | — | 15 pruebas del Anexo I ⏳ |
 | Backups | ⏳ | ⏳ BKP01 + BKP02 | Restauración ⏳ |
 
 ---
@@ -59,11 +59,11 @@
 | AD-09 | Borrar la OU vacía `Cuentasespeciales` (sin espacio) si quedó de la v1 | ✅ | Revisado el 18/11 (confirmado por Max) |
 | AD-10 | Exportar DC01 a OVA e importarlo en Proxmox (VMID 123, IP .23 de nuevo) | ⏳ | **No se hizo en la sesión 1 (D-05)**; primero en la sesión 2. Si el asistente falla, método manual · 📸 · la copia de VirtualBox no se vuelve a encender |
 | AD-11 | DC02: instalación limpia y promoción con DNS y catálogo global **en VirtualBox** junto a DC01 (decisión del 19/11) | ✅ | 19/11 (guía 07, apartado 2). Hora desde DC01, GPO de dominio aplicadas, FSMO en DC01 · 📸 FSMO y licencia |
-| AD-11b | Exportar DC01 y DC02 a OVA e importarlos en Proxmox (123 y 124, DC01 primero, IP de nuevo) | ⏳ | De uno en uno (≈ 24 GB libres en `local`) · no volver a encender las copias de VirtualBox · 📸 `replsummary` y `nslookup` en Proxmox |
+| AD-11b | Exportar DC01 y DC02 a OVA e importarlos en Proxmox (123 y 124, DC01 primero, IP de nuevo) | ⏳ Parcial | **OVA exportadas el 27/11 (Oriol)**, pendientes de importar · De uno en uno (≈ 24 GB libres en `local`) · no volver a encender las copias de VirtualBox · 📸 `replsummary` y `nslookup` en Proxmox |
 | AD-12 | Replicación DC01 ↔ DC02 (`repadmin /replsummary`, usuario de prueba) | ✅ | 19/11: 0 errores en las dos direcciones, 5 particiones correctas, SYSVOL compartido y en estado 4, usuario de prueba replicado. `dcdiag`: solo avisos DFSREvent/SystemLog de la promoción (16:27) · 📸 |
 | AD-13 | Fuente de hora del PDC (DC01) | ✅ | 18/11: `hora.roa.es` y `es.pool.ntp.org` con `w32tm` (confirmado por Max) |
 | AD-14 | Caducidad de `auditor.ext` al final de la Fase 3 | ❓ | Fecha sin comunicar |
-| AD-15 | Uso real de `svc_web` y `svc_bbdd` en los servicios Linux (mínimo privilegio) | ❓ | Falta decidir: p. ej. `svc_web` como login de la web en SQL Server y `svc_bbdd` para la autenticación de AD de SQL Server (keytab) [PENDIENTE DE CONFIRMAR] |
+| AD-15 | Uso real de `svc_web` y `svc_bbdd` en los servicios Linux (mínimo privilegio) | ⏳ Parcial | 26/11: la web entra en SQL Server con el login **`web_cibernova`** (SQL Server, no del dominio), creado en LNX01 y LNX02 con el **mismo SID** y solo con `db_datareader` + `db_datawriter` en su base de datos (decisión de Max). Mejora prevista: cambiarlo por `svc_web` del dominio (autenticación de AD con *keytab*) cuando los DC estén en Proxmox. `svc_bbdd` sin uso decidido [PENDIENTE DE CONFIRMAR] |
 | AD-16 | Evaluación de Windows: `slmgr /rearm` antes del ≈ 9/05/2027 | ⏳ | Fase 3; revisar también DC02, FS01, FS02 |
 | AD-17 | Script de **movimientos de personal** (baja, cambio de departamento, alta, becario → júnior) | ⏳ | Anexo I ap. 11-12: se aplican cuando lo indique el profesorado |
 
@@ -92,19 +92,19 @@
 
 | ID | Tarea | Estado | Notas / evidencia |
 |---|---|---|---|
-| FS-01 | FS01 (.25) y FS02 (.26): instalación limpia (VirtualBox → OVA → Proxmox), disco de datos | ⏳ Parcial | **FS01 ✅ en VirtualBox (23/11):** 2 vCPU, 4 GB, sistema 50 GB, **datos 150 GB dinámico** (D: `Datos`, GPT, NTFS), confirmado por Max y Oriol. **FS02 ✅ en VirtualBox (24/11)** con los mismos recursos. Falta la importación de las dos en Proxmox |
+| FS-01 | FS01 (.25) y FS02 (.26): instalación limpia (VirtualBox → OVA → Proxmox), disco de datos | ⏳ Parcial | **FS01 ✅ en VirtualBox (23/11):** 2 vCPU, 4 GB, sistema 50 GB, **datos 150 GB dinámico** (D: `Datos`, GPT, NTFS), confirmado por Max y Oriol. **FS02 ✅ en VirtualBox (24/11)** con los mismos recursos. **OVA exportadas el 27/11**; falta importarlas en Proxmox (125 y 126) |
 | FS-02 | Espacio de nombres DFS de dominio `\\cibernova.local\empresa` con los nombres exactos del Anexo I (ap. 8) | ✅ (VirtualBox) | Raíz creada el 23/11 (`Domain V2`, modo 2008, ABE) con destino FS01 📸. Recursos `Personales$`, `Departamentos$`, `Proyectos$`, `Comun$` creados. **Carpetas del espacio de nombres creadas el 24/11** (`Comun`, `Departamentos`, `Personales`, `Proyectos` → `\\FS01\<Carpeta>$`, las cuatro `Online`) 📸. **FS02 como segundo servidor del espacio de nombres (24/11)** 📸 |
-| FS-03 | Replicación DFS-R FS01 ↔ FS02; FS01 con prioridad en las referencias | ⏳ Parcial | **DFS-R ✅ (24/11):** cuatro grupos de replicación, FS01 miembro principal, malla completa; prueba con `prueba-replicacion.txt` FS01 → FS02 📸. Falta: FS01 con prioridad en las referencias y el informe de estado de DFS-R 📸 |
-| FS-04 | Estructura de carpetas creada por script | ⏳ | Script nuevo (propuesta: `06-carpetas-permisos.ps1`; el 05 ya es el de GPO). Las cuatro carpetas principales ya existen en `D:\Datos` |
-| FS-05 | **Matriz de permisos** P-01 a P-44 (carpetas en filas, grupos en columnas) | ⏳ | Entregable del inventario (Anexo I ap. 12) |
-| FS-06 | Grupos `DL_<Carpeta>_<Nivel>` y anidamiento `G_` → `DL_` (AGDLP) | ⏳ | Script; diagrama de anidamientos |
-| FS-07 | Permisos NTFS según la matriz; decisión recurso compartido vs NTFS justificada | ⏳ Parcial | **Decisión (23/11, visto bueno de Max):** recurso compartido con *Usuarios autentificados* Control total y permisos reales solo en NTFS (bitácora 23/11). Falta aplicar los NTFS con el script |
+| FS-03 | Replicación DFS-R FS01 ↔ FS02; FS01 con prioridad en las referencias | ✅ (VirtualBox) | **DFS-R ✅ (24/11):** cuatro grupos de replicación, FS01 miembro principal, malla completa; prueba con `prueba-replicacion.txt` FS01 → FS02 📸. **26/11:** destinos de FS02 como *Último de todos los destinos* (`GlobalLow`) 📸, borrado replicado 📸, informe de estado de DFS-R con 0 errores 📸. Quinta carpeta `Perfiles` con la misma configuración |
+| FS-04 | Estructura de carpetas creada por script | ✅ (VirtualBox) | `06-carpetas-permisos.ps1` v1.3 (26/11): 50 carpetas del Anexo I ap. 8 📸; replicadas a FS02 |
+| FS-05 | **Matriz de permisos** P-01 a P-44 (carpetas en filas, grupos en columnas) | ✅ | `docs/fase1/08-matriz-permisos.md` v1.0 (26/11), simulada con los 89 usuarios del CSV: 0 errores · visto bueno de Max [PENDIENTE DE CONFIRMAR] |
+| FS-06 | Grupos `DL_<Carpeta>_<Nivel>` y anidamiento `G_` → `DL_` (AGDLP) | ✅ | 63 grupos `DL_` + `G_RRHH_Nominas_Consulta` (script 06, 26/11); script 96 v1.2: 0 errores en FS01 y FS02 📸 · falta el diagrama de anidamientos (DOC-05) |
+| FS-07 | Permisos NTFS según la matriz; decisión recurso compartido vs NTFS justificada | ✅ (VirtualBox) | **Decisión (23/11, visto bueno de Max):** recurso compartido con *Usuarios autentificados* Control total y permisos reales solo en NTFS (bitácora 23/11). **NTFS aplicados (26/11)** con el script 06 v1.3 (50 ACL) y comprobados con el 96 v1.2 en FS01 y FS02 (0 errores) 📸 · ejemplo manual de `RRHH\Nominas` por interfaz gráfica 📸 |
 | FS-08 | Enumeración basada en acceso (ABE) en todos los recursos | ✅ | ✅ En la raíz DFS y en los cuatro recursos de FS01 (23/11) y de FS02 (24/11), `AccessBased` 📸 · pruebas 3, 5, 14 |
-| FS-09 | Depósito `RRHH\Buzon_Documentacion` (P-10) e `Comun\Intercambio` (P-41) con CREATOR OWNER | ⏳ | Pruebas 7 y 8 |
-| FS-10 | Becarios con permisos reducidos sin denegaciones genéricas (P-17, P-21, P-31) y sin acceso nunca a Proyectos (P-38) | ⏳ | Decisión justificada |
-| FS-11 | Auditoría de acceso en `Nominas`, `Expedientes` y `Proyectos\Sanitario`, también para Sistemas (P-11, P-39) | ⏳ | SACL + GPO de auditoría avanzada · prueba 15 |
-| FS-12 | Carpetas personales `Personales\<usuario>` **creadas por el script de alta**, solo el usuario con Modificar | ⏳ | Ampliar el script 02 (nueva versión) · sin carpeta para recepcion, auditor, adm. y svc |
-| FS-13 | Cuotas FSRM: 2 GB general, 5 GB Desarrollo y Sistemas, 500 MB becarios, aviso al 90 % y bloqueo | ⏳ | Prueba 12 |
+| FS-09 | Depósito `RRHH\Buzon_Documentacion` (P-10) e `Comun\Intercambio` (P-41) con CREATOR OWNER | ✅ (configurado) | Niveles D e I del script 06; `icacls` de Intercambio comprobado (26/11) · pruebas 7 y 8 pendientes (clientes) |
+| FS-10 | Becarios con permisos reducidos sin denegaciones genéricas (P-17, P-21, P-31) y sin acceso nunca a Proyectos (P-38) | ✅ (configurado) | Grupos `G_Becarios_*` propios y una sola denegación (`DL_Proyectos_Denegar`), justificado en el documento 08 · prueba desde cliente pendiente |
+| FS-11 | Auditoría de acceso en `Nominas`, `Expedientes` y `Proyectos\Sanitario`, también para Sistemas (P-11, P-39) | ✅ (configurado) | SACL (Todos, éxito y error) con el script 06; `auditpol` en FS01 → *Aciertos y errores* 📸 · prueba 15 pendiente |
+| FS-12 | Carpetas personales `Personales\<usuario>` **creadas por el script de alta**, solo el usuario con Modificar | ⏳ Parcial | **89 carpetas creadas (26/11)** con `07-personales-cuotas-perfiles.ps1` (solo el usuario con Modificar; H: en AD) 📸 · falta que el script de alta (02 v2.3) llame al 07 en cada alta [PENDIENTE DE CONFIRMAR con Max] |
+| FS-13 | Cuotas FSRM: 2 GB general, 5 GB Desarrollo y Sistemas, 500 MB becarios, aviso al 90 % y bloqueo | ✅ (configurado) | Script 07 (26/11): 3 plantillas con límite estricto y aviso al 90 % (evento); 89 cuotas en FS01 y 89 en FS02 📸 · aviso solo como evento [PENDIENTE DE CONFIRMAR] · prueba 12 pendiente |
 | FS-14 | (Valorable) vaciado automático de `Intercambio` (archivos de más de 30 días) | ⏳ | Tarea programada o FSRM |
 | FS-15 | `svc_backup` con privilegio de copia en FS01/FS02 | ⏳ | GPO |
 
@@ -112,14 +112,14 @@
 
 | ID | Tarea | Estado | Notas |
 |---|---|---|---|
-| GPO-01 | Perfil **móvil** para Dirección y Comercial | ⏳ | Prueba 9 |
-| GPO-02 | Perfil local con **redirección** de Documentos y Escritorio para el resto | ⏳ | |
+| GPO-01 | Perfil **móvil** para Dirección y Comercial | ⏳ Parcial | `ProfilePath` en los 16 usuarios "Movil" (script 07) y carpeta `Perfiles` en DFS con FS01 y FS02 (26/11) 📸 · prueba 9 pendiente |
+| GPO-02 | Perfil local con **redirección** de Documentos y Escritorio para el resto | ⏳ Parcial | `GPO_Usuarios_Redireccion` (26/11): `G_Sede_*`, denegada a `G_Direccion` y `G_Comercial`; Documentos y Escritorio → `Personales\%USERNAME%`, sin derechos exclusivos 📸 · falta probar desde cliente |
 | GPO-03 | Perfil **obligatorio** para `recepcion.bcn` | ⏳ | Prueba 10 |
-| GPO-04 | Unidades H:, G:, P: (solo con acceso a algún proyecto) y S: (también recepcion) | ⏳ | Preferencias de GPO con destino por grupo |
+| GPO-04 | Unidades H:, G:, P: (solo con acceso a algún proyecto) y S: (también recepcion) | ⏳ Parcial | H: en la cuenta de AD (script 07); `GPO_Usuarios_Unidades` (26/11): G: (`G_Sede_*`), P: (`DL_Proyectos_L`), S: (`DL_Comun_C`) con destino por grupo 📸 · falta probar desde cliente |
 | GPO-05 | Denegar inicio de sesión interactivo a `G_Cuentas_Servicio` | ✅ | `GPO_Dominio_CuentasServicio` (script 05 v1.1, 18/11), aplicada en DC01; script 94: 25 OK |
 | GPO-06 | Cuentas `adm.` sin inicio de sesión en equipos de usuarios | ⏳ | `GPO_Equipos_SinCuentasAdm` creada y vinculada (18/11); falta comprobarla en CLI01/CLI02 |
 | GPO-07 | Firewall de Windows por GPO (compensación de la red plana) | ✅ | `GPO_Dominio_Firewall` (18/11), aplicada en DC01 (3 perfiles activados); falta comprobarla en el resto al unirlos |
-| GPO-08 | Auditoría avanzada de acceso a archivos en FS01/FS02 | ⏳ | `GPO_Servidores_Auditoria` creada y vinculada (18/11); **aplicada en FS01 y FS02** (`gpresult`, 23 y 24/11). Faltan las SACL de las carpetas (FS-11) |
+| GPO-08 | Auditoría avanzada de acceso a archivos en FS01/FS02 | ✅ | `GPO_Servidores_Auditoria` creada y vinculada (18/11); **aplicada en FS01 y FS02** (`gpresult`, 23 y 24/11). SACL de las carpetas aplicadas el 26/11 (FS-11) |
 
 ## 7. Clientes de prueba (Oriol)
 
@@ -137,7 +137,7 @@
 | LNX-03 | WEB01 (usaba la .25 de FS01) | ✅ | Borrada el 17/11 con las demás VMs antiguas (100–107) |
 | LNX-04 | LNX02, BKP01 y BKP02 con Ubuntu 24.04 | ✅ | LNX02 (129, .29) y BKP01 (130, .30) clonadas de LNX01 el 17/11 (opción A) y personalizadas (BKP01 el 18/11). BKP02 (131, .31) clonada el 19/11 de la instantánea `base-limpia` (sin SQL Server) y personalizada. Las cuatro con el mismo kernel (6.8.0-151). 📸 `*_personalizado`, `*_kernel*` |
 | LNX-05 | IP fija, DNS .23/.24, hora con los DC en las cuatro | ⏳ | Guía 07, apartado 3.3 |
-| LNX-06 | Firewall (ufw/nftables) solo con los puertos necesarios | ⏳ | Compensación de la red plana |
+| LNX-06 | Firewall (ufw/nftables) solo con los puertos necesarios | ⏳ Parcial | 26/11: `ufw` activo en **LNX01** (15 reglas) y **BKP01** (13 reglas): entrada denegada por defecto; 22/tcp desde 192.168.200.0/22; 80/tcp solo en los nodos web; 5405/udp, 2224/tcp, 5022/tcp y 1433/tcp solo desde .28, .29 y .30. Clúster sin cambios 📸. **Falta LNX02** (sesión 5) y BKP02 (con Bareos) |
 | LNX-07 | Salida a Internet para `apt` desde el rango .23–.33 | ✅ | 17/11 con LNX01 (DNS públicos en netplan porque el DNS del aula no responde) |
 
 ## 9. Base de datos: SQL Server 2025 AG (Max)
@@ -147,9 +147,9 @@
 | DB-01 | SQL Server 2025 Enterprise Developer en LNX01 y LNX02 | ✅ | 19/11: `mssql-conf setup` (opción 2), `hadr.hadrenabled 1` y Agente activado. `sqlcmd` → Enterprise Developer, `alwayson = 1`. 📸 `lnx0x_mssql-status`, `lnx0x_mssql-comprobacion` |
 | DB-02 | SQL Server Express en BKP01 (réplica de solo configuración) | ✅ | 19/11: `mssql-conf setup` (opción 4) y `hadr.hadrenabled 1` (sin Agente: Express no lo incluye). `sqlcmd` → Express, `alwayson = 1`. Falta añadirla al AG como réplica de solo configuración (DB-03/04). 📸 `bkp01_mssql-*` |
 | DB-03 | Always On AG con commit síncrono, endpoints con certificados | ✅ | 24/11: certificado `dbm_certificate` (hasta 31/12/2028) en los tres; *endpoints* 5022 con AES (`ALL` en LNX01/LNX02, `WITNESS` en BKP01); AG `sqlag_cibernova` (`EXTERNAL`), `lnx01`/`lnx02` síncronas y `bkp01` `CONFIGURATION_ONLY`, las tres `CONNECTED`. 📸 `*_endpoint`, `lnx01_crear-ag`, `lnx01_replicas-ag` |
-| DB-04 | AG como recurso de Pacemaker, listener en la VIP .27 | ⏳ Parcial | 24/11: `pacemakerLogin` con mínimo privilegio; recurso `ag_cluster` (`Promoted lnx01`) y VIP .27 con colocación y orden. **Falta:** base de datos en el AG y prueba de conmutación (26/11). Punto de control 1/12 (plan B: conmutación manual) |
+| DB-04 | AG como recurso de Pacemaker, listener en la VIP .27 | ✅ | 24/11: `pacemakerLogin`, recurso `ag_cluster` y VIP .27. **26/11:** base de datos `cibernova_pruebas` (recuperación completa + copia) añadida al AG con *seeding* automático → `SYNCHRONIZED`/`HEALTHY` en LNX01 y LNX02; conmutación manual con `pcs resource move ... --promoted` (en los dos sentidos) y caída real de LNX01 (`qm stop 128`): conmutación automática con *fencing*, sin pérdida de datos. Punto de control del 1/12 cumplido (sin plan B) 📸 `2026-11-26_sesion04_*` |
 | DB-05 | Base de datos de la aplicación web | ❓ | Depende de la aplicación |
-| DB-06 | Acceso a la BBDD solo desde los nodos web y BKP01 | ⏳ | Firewall |
+| DB-06 | Acceso a la BBDD solo desde los nodos web y BKP01 | ⏳ Parcial | 26/11: 1433/tcp solo desde .28, .29 y .30 en LNX01 y BKP01 (`ufw`). Falta LNX02 |
 
 ## 10. Clúster Pacemaker + Corosync (Max)
 
@@ -164,9 +164,9 @@
 | ID | Tarea | Estado | Notas |
 |---|---|---|---|
 | WEB-01 | Decidir la aplicación web (debe usar SQL Server) | ❓ | |
-| WEB-02 | Apache mpm_event + PHP-FPM + driver ODBC + `sqlsrv` en LNX01 y LNX02 | ⏳ | |
-| WEB-03 | Mismo contenido web en los dos nodos | ❓ | Falta decidir cómo (despliegue desde Git, rsync…) |
-| WEB-04 | Apache como recurso de Pacemaker con la VIP | ⏳ | |
+| WEB-02 | Apache mpm_event + PHP-FPM + driver ODBC + `sqlsrv` en LNX01 y LNX02 | ✅ | 26/11: Apache 2.4.58 (`mpm_event`), PHP-FPM 8.3.6, `proxy_fcgi`, `sqlsrv` y `pdo_sqlsrv` 5.13.3 (PECL) en los dos nodos. Página `bbdd.php` que entra por la VIP con `web_cibernova` (credenciales en `/etc/cibernova/web.ini`, `640 root:www-data`, fuera de la carpeta web) 📸 |
+| WEB-03 | Mismo contenido web en los dos nodos | ⏳ | 26/11: de momento copiado a mano (`nodo.php`, `bbdd.php`, `web.ini` iguales en LNX01 y LNX02, comprobado con `ls -l`). ❓ Falta decidir el método para la aplicación definitiva (despliegue desde Git, `rsync`…) |
+| WEB-04 | Apache como recurso de Pacemaker con la VIP | ✅ | 26/11 (opción A, decisión de Max): recurso `apache` (`ocf:heartbeat:apache`, comprueba `server-status` cada 20 s), `apache2` quitado del arranque de systemd; colocación `INFINITY` con `virtualip`, orden `virtualip` → `apache` y `avoids bkp01`. Conmutación probada: la web sigue a la réplica principal 📸 |
 
 ## 12. SFTP (Max)
 
@@ -200,7 +200,7 @@
 | PR-01 | **15 pruebas del Anexo I** (ap. 10) con captura cada una | ⏳ | Necesitan FS, GPO y clientes |
 | PR-02 | Caída de AD/DNS: DC01 apagado, el cliente sigue | ⏳ | 📸 |
 | PR-03 | Caída de ficheros: FS01 apagado, DFS sigue con FS02 | ⏳ | 📸 |
-| PR-04 | Caída de BBDD/web/SFTP: LNX01 apagado, la VIP pasa a LNX02 | ⏳ | 📸 |
+| PR-04 | Caída de BBDD/web/SFTP: LNX01 apagado, la VIP pasa a LNX02 | ⏳ Parcial | **BBDD ✅ (26/11):** `qm stop 128` con LNX01 principal → *fencing* (17:34:34), LNX02 principal, VIP en LNX02, ≈ 36 s sin servicio (36 de 189 pings perdidos), 0 datos perdidos, LNX01 vuelve sola como secundaria. **Web ✅ (26/11):** conmutación con la cadena completa (VIP → Apache → PHP → SQL Server) ≈ 29 s. **Falta SFTP** 📸 |
 | PR-05 | Caída de DHCP: el nodo en espera responde | ⏳ | 📸 |
 | PR-06 | Restauración de copias (archivo, BBDD) y con BKP01 apagado | ⏳ | 📸 |
 | PR-07 | Movimientos de personal del Anexo I ap. 11 cuando lo indique el profesorado | ⏳ | |
@@ -217,7 +217,7 @@
 | DOC-06 | Anexo de necesidades de IA | ⏳ No empezado | Métricas, tareas repetitivas, ideas para la Fase 2 |
 | DOC-07 | Calendario inicial y seguimiento | ⏳ | Replanificar por el cierre del 4/12 (D-04) · ❓ ¿se entregó el calendario inicial al profesorado? |
 | DOC-08 | Bitácora con todos los desfases | ⏳ Continuo | |
-| DOC-09 | Repositorio Git: commits significativos con conventional commits | ⏳ Continuo | **Todo subido el 4/12**. GitHub va por la V11 (17/11): subir V13. Los 3 primeros commits salen con autor Claude (registrado en la bitácora 19/11); los nuevos, con autoría de Max u Oriol. Propuesta: un commit por sesión y ramas por bloque [PENDIENTE DE CONFIRMAR]. Carpetas `scripts/linux`, `configs/*` y `docs/diagramas` vacías |
+| DOC-09 | Repositorio Git: commits significativos con conventional commits | ⏳ Continuo | **Todo subido el 4/12**. GitHub va por la V20 (`6822190`, 24/11). Los 3 primeros commits salen con autor Claude (registrado en la bitácora 19/11); los nuevos, con autoría de Max u Oriol. Primeros ficheros reales de Linux en `configs/linux/` (V21). Carpetas `scripts/linux` y `docs/diagramas` vacías |
 | DOC-10 | Memoria del proyecto (Google Doc → `docs/Proyecto-memoria.pdf`) | ⏳ | Regenerar el PDF con las capturas nuevas |
 | DOC-11 | Defensa: 5-10 min, los dos participan, demo funcional | ⏳ | ❓ fecha de la defensa |
 

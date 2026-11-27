@@ -90,11 +90,109 @@ Registro continuo de decisiones, problemas, soluciones y desfases. Una entrada p
 | Ocurrido | DC01 sigue en VirtualBox; no se exportó ni se importó. |
 | Causa | **[PENDIENTE DE CONFIRMAR]** (Oriol). |
 | Medidas | Plan B del calendario: DC01 sigue en VirtualBox. Se importa al empezar la sesión 2 (19/11). Si el asistente de importación de Proxmox falla como con LNX01, se usa el método manual (`tar` + `qm create` + `qm importdisk`, memoria técnica 2.3.2), con disco SATA y red E1000 hasta instalar los drivers VirtIO. | **Actualización 19/11 (decisión de Max, confirmada con Oriol):** DC01 ya no se importa solo: primero se promociona DC02 en VirtualBox junto a DC01 y después se exportan e importan los dos (guía 07 v1.5, apartado 2).
-| Impacto | DC02 no se puede promover hasta que DC01 esté en Proxmox: la sesión 2 de Oriol empieza por DC01. Se recupera con el margen de Windows (D-02). **Actualización 19/11:** con la promoción en VirtualBox, DC02 ya no espera a que DC01 esté en Proxmox; lo que sigue esperando a los dos DC en Proxmox es la unión al dominio del resto de máquinas. |
+| Impacto | DC02 no se puede promover hasta que DC01 esté en Proxmox: la sesión 2 de Oriol empieza por DC01. Se recupera con el margen de Windows (D-02). **Actualización 19/11:** con la promoción en VirtualBox, DC02 ya no espera a que DC01 esté en Proxmox; lo que sigue esperando a los dos DC en Proxmox es la unión al dominio del resto de máquinas. **Actualización 23–27/11:** FS01 y FS02 también se montan en VirtualBox y el 27/11 se exportan los cuatro Windows a OVA, a la espera de importarlos en Proxmox (objetivo: 1/12). |
 
 ---
 
 ## Entradas
+
+### 2026-11-27 · Fuera de horario (OVA de los Windows) · Oriol
+
+**Hecho:**
+- **Exportadas a OVA** las máquinas Windows de VirtualBox (DC01, DC02, FS01 y FS02 [PENDIENTE DE CONFIRMAR que son las cuatro]) con todo lo hecho hasta el 26/11 (dominio, DNS, GPO, DFS-N + DFS-R, permisos, carpetas personales, cuotas, perfiles y GPO de unidades y redirección). **A la espera de subirlas a Proxmox** (VMID 123, 124, 125 y 126).
+
+**Decisiones:**
+- **Las copias de VirtualBox ya no se tocan.** Lo que se cambie en ellas después de exportar no llegaría a Proxmox y, en los DC, volver a encender una copia antigua después de importar provocaría un *USN rollback* (rotura de la replicación de AD). A partir de ahora, el trabajo de Windows (clientes, perfil obligatorio, GPO de `svc_backup`) se hace en Proxmox.
+- **Importación de una en una** (≈ 24 GB libres en `local`), **DC01 primero**, borrando cada OVA después de importarla. Si el asistente falla, método manual (`tar` + `qm create` + `qm importdisk`), como con LNX01.
+
+**Desfase:** D-05 sigue abierto hasta que estén importadas (objetivo: como muy tarde el 1/12, porque la unión al dominio de los Linux, `svc_web` y los agentes de Bareos para Windows dependen de los DC).
+
+**Siguiente (Proxmox):** importar DC01 → DC02 → FS01 → FS02, volver a poner IP y DNS (cambia la tarjeta de red), comprobar replicación de AD (`repadmin /replsummary`), DFS (`Get-DfsnFolderTarget`) y DFS-R 📸; después, clientes CLI01 y CLI02, perfil obligatorio de `recepcion.bcn` y GPO de `svc_backup`.
+
+### 2026-11-26 · Sesión 4 y fuera de horario (DFS, permisos, carpetas personales y GPO) · Oriol
+
+**Hecho (en VirtualBox, con DC01, DC02, FS01 y FS02):**
+- **15:10-16:00 · DFS:** destinos de FS02 como *Último de todos los destinos* (`GlobalLow`) en las cuatro carpetas: 8 destinos `Online`, FS01 `sitecost-normal` y FS02 `global-low` 📸. Fichero de prueba borrado en FS01 → desaparece en FS02 📸. Informe de estado de DFS-R: **0 errores**, 1 advertencia ("el servicio se reinicia con frecuencia", por los apagados del laboratorio; sin eventos de nivel Error) 📸. **FS-03 ✅.**
+- **Matriz de permisos P-01 a P-44** (`docs/fase1/08-matriz-permisos.md`): 50 carpetas, 63 grupos `DL_` (AGDLP) y el grupo global `G_RRHH_Nominas_Consulta` (rosa.martinez, P-08). Simulada con los 89 usuarios del CSV: 0 errores y pruebas 1-8 y 13 correctas.
+- **Ejemplo manual de `RRHH\Nominas` por interfaz gráfica:** grupos en DC01, herencia cortada, SYSTEM y Administradores con control total, DERECHOS DE PROPIETARIO solo "Permisos de lectura", `DL_RRHH_Nominas_M` (Modificar) y `DL_RRHH_Nominas_C` (Lectura y ejecución), auditoría. Acceso efectivo: rosa.martinez solo lectura; irene.moreno (RRHH sin nóminas) sin acceso 📸. `auditpol` en FS01 → *Aciertos y errores* 📸.
+- **Script `06-carpetas-permisos.ps1`** en FS01 (con `RSAT-AD-PowerShell` instalado): simulación sin avisos 📸 y ejecución con la **v1.3** → 63 grupos `DL_`, 50 carpetas, 50 ACL y auditoría en Nominas, Expedientes y Proyectos\Sanitario 📸. **Script `96-comprobar-carpetas-permisos.ps1` v1.2: 0 errores en FS01 y en FS02** (DFS-R replica carpetas y permisos) 📸.
+- **Hora del dominio:** DC01 sincroniza con `hora.roa.es` (y `es.pool.ntp.org`); DC02, FS01 y FS02 con la jerarquía del dominio; zona `Romance Standard Time` en todas. FS02 → `DC01.cibernova.local`.
+- **Script `07-personales-cuotas-perfiles.ps1` v1.0** (fuera de horario, 18:30-20:00): 89 carpetas personales (solo el usuario con Modificar), unidad H: en AD, perfil móvil en los 16 de Dirección y Comercial, carpeta y recurso `Perfiles$`, y cuotas FSRM (65 × 2 GB, 20 × 5 GB, 4 × 500 MB, límite estricto y aviso al 90 %) 📸. En FS02 con `-SoloCuotas`: 89 cuotas 📸.
+- **Perfiles en DFS:** `Perfiles$` en FS02 📸 y carpeta `Perfiles` en `\\cibernova.local\empresa` con destinos FS01 y FS02, grupo de replicación y FS02 como último destino.
+- **`GPO_Usuarios_Unidades`** (OU CiberNova): G: Departamentos (`G_Sede_*`), P: Proyectos (`DL_Proyectos_L`) y S: Comun (`DL_Comun_C`) con destino por grupo 📸.
+- **`GPO_Usuarios_Redireccion`** (OU CiberNova): solo `G_Sede_*`, denegada a `G_Direccion` y `G_Comercial` (perfil móvil); Documentos y Escritorio a `\\cibernova.local\empresa\Personales\%USERNAME%`, sin derechos exclusivos 📸.
+
+**Problemas y soluciones:**
+- Problema: al deshabilitar la herencia en Nominas se convirtieron los permisos heredados (quedaron *Usuarios* y *CREATOR OWNER*) y, después, el Acceso efectivo de Rosa salía todo denegado. → Causa: las entradas de los `DL_` no se habían guardado. Diagnóstico con `Get-ADGroupMember` (AD correcto) e `icacls` (faltaban los `DL_`). Solución: quitar las entradas sobrantes y volver a añadir los `DL_`.
+- Problema: script 06 v1.0 → *No se encuentra ninguna sobrecarga para FileSystemAccessRule*; v1.1 y v1.2 → *No se puede convertir a NULL el tipo FileSystemRights*. → Causa: **PowerShell no distingue mayúsculas en las variables**: el bucle `foreach ($r in $Recursos)` sobrescribía `$R` (el tipo de los permisos). Las v1.1 y v1.2 corregían otra cosa. Solución (v1.3): variables con nombres distintos (`$FSR`, `$Rec`). Los intentos fallidos se pararon antes de cambiar ningún permiso. Lección: no usar variables que solo se diferencian en mayúsculas.
+- Problema: falta el módulo ActiveDirectory en FS01 y en FS02. → Solución: `Install-WindowsFeature RSAT-AD-PowerShell`.
+- Problema: el script 96 v1.1 daba ERROR en `Comun\Intercambio`. → Causa: Windows añade *Synchronize* (S) a la regla de crear (`icacls` → `(S,WD,AD)`); los permisos eran correctos. Solución (v1.2): comparar la suma de derechos de cada grupo.
+- Problema: horas distintas en las VM. → Solución: jerarquía de hora del dominio con `w32tm` (ver Decisiones).
+- Problema: la ruta de redirección de Escritorio tenía un punto al final (`Escritorio.`). → Solución: corregida. Al guardar, Windows convierte la ruta en "Crear una carpeta para cada usuario en la ruta raíz" (equivalente).
+
+**Decisiones:**
+- **AGDLP con grupos `DL_<Carpeta>_<Nivel>`** (motivo: los cambios de personal solo tocan grupos, nunca las ACL). Alternativas: permisos a usuarios o a los `G_` directamente.
+- **Becarios con grupos propios y una sola denegación** (Proyectos, P-38) (motivo: una denegación gana a cualquier permiso y es fácil bloquear sin querer). Alternativa: denegar carpeta a carpeta.
+- **Opción mixta: una carpeta a mano y el resto por script** (motivo: entender el proceso y que sea repetible y versionado).
+- **DERECHOS DE PROPIETARIO solo con lectura de permisos** (motivo: el nivel Modificar del Anexo no debe permitir cambiar permisos).
+- **Carpeta personal con el usuario directamente en la ACL**, única excepción a AGDLP (motivo: la carpeta es del usuario).
+- **Perfiles móviles en DFS con FS02 como último destino** (motivo: redundancia; Microsoft solo admite perfiles sobre DFS-R con un único destino activo).
+- **Unidades con preferencias de GPO y destino por grupo** (motivo: cada usuario solo recibe las unidades que puede abrir). Alternativa: script de inicio de sesión.
+- **Redirección sin derechos exclusivos** (motivo: conservar los permisos de la carpeta personal).
+- **Hora: DC01 con `hora.roa.es`** (fuente oficial española) y el resto desde el dominio (motivo: Kerberos falla con más de 5 minutos de diferencia).
+
+**Pendiente de confirmar con Max:** visto bueno a la matriz y a los scripts 06, 96 y 07 (ya aplicados); que el script de alta (02 v2.3) llame al 07 en cada alta (el Anexo pide que la carpeta personal la cree el script de alta); si basta con que el aviso del 90 % quede como evento.
+
+**Desfase:** No en permisos y GPO (adelanto). D-05 sigue abierto: los cuatro Windows siguen en VirtualBox.
+
+**Siguiente:** exportar los Windows a OVA (hecho el 27/11, ver la entrada siguiente) e importarlos en Proxmox; clientes CLI01 y CLI02; perfil obligatorio de `recepcion.bcn` (GPO-03); GPO de `svc_backup` (FS-15); las 15 pruebas del Anexo I y las de caída (PR-02, PR-03).
+
+### 2026-11-26 · Sesión 4 (AG con base de datos, web en alta disponibilidad y firewall) · Max
+
+**Hecho:**
+- **Arranque:** al encender las VMs (130, 128 y 129), el clúster se forma solo con quórum, pero la réplica principal sale en **lnx02** (el 24/11 estaba en lnx01) y la VIP la sigue. No es un error: Pacemaker no tiene preferencia entre LNX01 y LNX02 y promueve la que está lista primero. Comprobación por la VIP: `SELECT @@SERVERNAME` → `lnx02`.
+- **Base de datos de prueba `cibernova_pruebas`** creada por la VIP (en la principal), en recuperación completa y con una copia completa (requisito para entrar en un AG); `GRANT CREATE ANY DATABASE` en la secundaria y `ALTER AVAILABILITY GROUP ... ADD DATABASE`. Con el *seeding* automático aparece sola en LNX01: `ONLINE`, `SYNCHRONIZED`, `HEALTHY` 📸.
+- **Salud de las réplicas:** antes de añadir la base de datos, lnx01 y lnx02 salían `NOT_HEALTHY` (el AG estaba vacío: la salud se calcula a partir de las bases de datos). Con la base de datos, las tres `HEALTHY` 📸.
+- **Tabla `prueba_ha`** con una fila por escritura (`@@SERVERNAME`), para comprobar que los datos sobreviven a las conmutaciones.
+- **Conmutación manual** a LNX01 con `sudo pcs resource move ag_cluster-clone lnx01 --promoted`: `pcs` crea la restricción temporal y **la borra solo** (`pcs constraint location` vacío). Las filas escritas en LNX02 siguen y LNX01 acepta escrituras 📸.
+- **Prueba de caída de LNX01 (PR-04, parte BBDD):** con LNX01 como principal, `qm stop 128` desde Proxmox (corte de corriente). Pacemaker hace *fencing* de lnx01 (`reboot of lnx01 successful`, 17:34:34, por bkp01), promueve LNX02 y mueve la VIP. **≈ 36 s sin servicio** (36 de 189 pings perdidos a la VIP, uno por segundo); **0 datos perdidos**; LNX01 vuelve sola (la reinicia `fence_pve`) como secundaria y se resincroniza (`SYNCHRONIZED`/`HEALTHY`) 📸.
+- **Apache 2.4.58 + PHP-FPM 8.3.6** en LNX01 y LNX02 (`mpm_event`, `proxy_fcgi`), drivers **`sqlsrv` y `pdo_sqlsrv` 5.13.3** compilados con PECL y activados con `phpenmod` (ficheros en `mods-available`). Página `nodo.php` con el nombre del nodo 📸.
+- **Apache en Pacemaker (opción A):** `apache2` quitado del arranque de systemd en los dos nodos; recurso `apache` (`ocf:heartbeat:apache`, `statusurl=http://localhost/server-status`, monitor cada 20 s) creado desactivado, con colocación `INFINITY` con `virtualip`, orden `virtualip` → `apache` y `avoids bkp01`, y activado → `Started lnx02`. `curl http://192.168.202.27/nodo.php` desde PROC → `lnx02` 📸.
+- **Conmutación de la web** a LNX01 con un bucle de `curl` cada segundo desde PROC: ≈ 35 s sin respuesta. Desglose con `journalctl -u pacemaker`: `stop` de apache y VIP en lnx02 (18:03:03), `demote` (18:03:06), **`promote` en lnx01 (18:03:28, 22 s)**, `start` de la VIP (18:03:34) y de apache (18:03:35) 📸.
+- **Usuario de la web `web_cibernova`:** login de SQL Server creado en LNX01 y en LNX02 **con el mismo SID** (`0x4A01...53E9`) y usuario en `cibernova_pruebas` con `db_datareader` y `db_datawriter`. Contraseña escrita en `sqlcmd` interactivo y tapada en las capturas 📸.
+- **Página `bbdd.php`:** se conecta por la VIP con PDO (`sqlsrv`, `Encrypt=yes`), escribe una fila y enseña las 5 últimas; las credenciales están en `/etc/cibernova/web.ini` (`640 root:www-data`, fuera de la carpeta web) y los errores van al registro, no al usuario. Ficheros iguales en los dos nodos (`ls -l`) 📸.
+- **Conmutación con toda la cadena** (VIP → Apache → PHP → SQL Server) a LNX02 con un bucle desde PROC: última respuesta de lnx01 a las 18:36:15 (fila 2013) y primera de lnx02 a las 18:36:44 (fila 3002): **≈ 29 s sin servicio y ninguna fila perdida** 📸.
+- **Firewall `ufw`** en **LNX01** (15 reglas) y **BKP01** (13 reglas), de nodo en nodo y comprobando `pcs status` después de cada uno: entrada denegada por defecto, 22/tcp desde la red del aula, 80/tcp solo en los nodos web, y Corosync (5405/udp), `pcsd` (2224/tcp), *endpoint* del AG (5022/tcp) y SQL Server (1433/tcp) solo desde .28, .29 y .30. El clúster y la web siguen funcionando 📸.
+- 66 capturas (`2026-11-26_sesion04_*`, en `capturas-sesion04.zip`).
+- Al terminar: `pcs cluster stop --all` y apagado de 128, 129 y 130.
+
+**Problemas y soluciones:**
+- Problema: `NOT_HEALTHY` en lnx01 y lnx02 con el AG recién creado. → Causa: el AG no tenía bases de datos. Solución: ninguna; desaparece al añadir `cibernova_pruebas`.
+- Observación: la columna `id` (`IDENTITY`) salta de 2 a 1002, de 1002 a 2002 y de 2013 a 3002 tras cada conmutación. → Causa: SQL Server reserva los valores de `IDENTITY` de 1000 en 1000 en memoria y descarta los no usados si la instancia cae o conmuta. No falta ningún dato.
+- Observación: el primer `pcs status` tras `qm stop 128` mostraba lnx01 `OFFLINE`, ninguna réplica `Promoted` y la VIP `Stopped`. → Causa: es el estado intermedio correcto; Pacemaker no promueve LNX02 hasta haber hecho *fencing* de LNX01 (evita tener dos principales). Al cabo de unos segundos, todo en LNX02.
+- Avisos de `pecl install` (*«You should add extension=... to php.ini»*): normales; los drivers se activan con ficheros en `/etc/php/8.3/mods-available` y `phpenmod`.
+
+**Decisiones:**
+- **Nombre de la base de datos de prueba: `cibernova_pruebas`** (Max): deja claro que solo sirve para probar el AG y no es la de la aplicación web.
+- **Sin preferencia de nodo para la réplica principal** (Max). Alternativa descartada: `pcs constraint location ag_cluster-clone prefers lnx01=50` (cuando LNX01 volviera tras una caída, la principal regresaría a ella y habría otro corte de unos 30 s sin necesidad).
+- **Conmutar siempre con Pacemaker** (`pcs resource move ... --promoted`), nunca con `ALTER AVAILABILITY GROUP ... FAILOVER`: con `CLUSTER_TYPE = EXTERNAL` manda Pacemaker; si se conmutara desde SQL Server, la VIP se quedaría en el nodo equivocado.
+- **Se mantiene la caché de `IDENTITY`** y se documentan los saltos (Max). Alternativa descartada: `ALTER DATABASE SCOPED CONFIGURATION SET IDENTITY_CACHE = OFF` (más lento al escribir; una aplicación no debe depender de números consecutivos).
+- **Apache con la VIP, un solo Apache activo (opción A, Max).** Alternativas: (B) Apache clonado en los dos nodos → descartada: más reglas y dos Apache que vigilar para ganar ≈ 1 s (Apache solo tarda 1 s en arrancar de los 35 s de la conmutación); (C) Apache fuera de Pacemaker → descartada: Pacemaker no detectaría un Apache caído y la VIP podría quedarse en un nodo sin web. Agente `ocf:heartbeat:apache` en vez de `systemd:apache2` porque comprueba que Apache responde, no solo que el proceso existe. PHP-FPM se queda activo en los dos nodos para que esté listo tras una conmutación.
+- **Usuario de SQL `web_cibernova`** con permisos mínimos (Max), en vez de `sa`. Se crea en las dos réplicas con el mismo SID porque los *logins* no viajan con el AG y, si no coincidieran, el usuario de la base de datos quedaría huérfano tras una conmutación. Mejora prevista: `svc_web` del dominio cuando estén los DC en Proxmox.
+- **Credenciales de la web fuera de la carpeta web** (`/etc/cibernova/web.ini`). **Riesgo aceptado:** `TrustServerCertificate=yes` porque el certificado de SQL Server es autofirmado (Fase 3: certificado propio), igual que `ssl_insecure` en `fence_pve`.
+- **Firewall de los Linux con `ufw`** (decisión del 16/11: red plana con firewall en cada servidor). Se valoró usar **OPNsense**: no sustituye al firewall de cada servidor (solo filtra el tráfico que pasa a través de él, y en la red plana los servidores hablan directamente), necesitaría segmentar la red (VLAN o `vmbr1`), cambiar la IP de todas las VMs y 2 VMs en HA con unas 3 direcciones más del aula, que no quedan libres (.23–.33 asignadas). Se mantiene para la Fase 3 como remedio de «red sin segmentar» [PENDIENTE DE CONFIRMAR si lo pidió el profesorado]. Alternativas también descartadas: `nftables` a mano (más fácil equivocarse) y abrir el 1433 a toda la red. Se activa de nodo en nodo, empezando por un nodo sin la réplica principal, para que un error en las reglas de Corosync no corte el servicio.
+
+**Tiempos medidos (para el RTO/RPO del diseño):**
+
+| Prueba | Sin servicio | Datos perdidos |
+|---|---|---|
+| Caída de LNX01 (`qm stop`, con *fencing*) | ≈ 36 s | 0 (commit síncrono) |
+| Conmutación planificada (VIP + Apache) | ≈ 35 s (22 s de `promote` del AG) | 0 |
+| Conmutación con toda la cadena (web + BBDD) | ≈ 29 s | 0 |
+
+**Desfase:** No. El punto de control del 1/12 (conmutación automática del AG) se cumple el 26/11, sin plan B. WEB-02 y WEB-04 adelantados; falta decidir la aplicación (WEB-01).
+
+**Siguiente sesión (1/12):** `ufw` en LNX02; SFTP con *chroot* en LNX01 y LNX02 (decidir SFTP-02) y añadirlo a la prueba PR-04; orden de arranque en Proxmox (HV-06). Bareos en cuanto se pueda (BKP-01 a BKP-05). Preguntar al profesorado por el DHCP (Q-01).
 
 ### 2026-11-24 · Sesión 3 (FS02 y replicación DFS-R) · Oriol
 

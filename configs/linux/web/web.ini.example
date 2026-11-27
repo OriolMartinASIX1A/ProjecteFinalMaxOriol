@@ -1,0 +1,6 @@
+; Ejemplo de /etc/cibernova/web.ini (LNX01 y LNX02). SIN la contraseña real.
+; Permisos: sudo chown root:www-data /etc/cibernova/web.ini && sudo chmod 640 /etc/cibernova/web.ini
+servidor = "192.168.202.27"
+bbdd = "cibernova_pruebas"
+usuario = "web_cibernova"
+clave = "<CONTRASEÑA, no se guarda en Git>"

@@ -1,25 +1,25 @@
 # Memoria técnica de la infraestructura desplegada – Fase 1
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 0.13 · 24/11/2026 (FS02 y replicación DFS-R, apartado 2.7) · v0.12 · 24/11/2026 (AG de SQL Server en Pacemaker con VIP .27, apartado 2.3.8; FS01: carpetas del espacio de nombres y replicación con DC02, apartado 2.6) · v0.11 · 23/11/2026 (FS01 en VirtualBox: dominio, disco de datos, roles, espacio de nombres y recursos compartidos, apartado 2.6) · v0.10 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing, apartado 2.3.7) · v0.9 · 19/11/2026 (sesión 2 Linux: SQL Server configurado, BKP01 y BKP02, apartado 2.3.6) · v0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
+**Versión:** 0.15 · 27/11/2026 (Oriol, 26–27/11: prioridad de referencias DFS e informe de DFS-R, apartado 2.7; permisos P-01 a P-44, carpetas personales, cuotas, perfiles, GPO de unidades y redirección, hora del dominio y OVA de los Windows, apartado 2.8) · v0.14 · 27/11/2026 (sesión 4 Linux: base de datos en el AG, conmutaciones y tiempos medidos, Apache + PHP-FPM en Pacemaker, usuario `web_cibernova`, firewall `ufw`, apartado 2.3.9) · v0.13 · 24/11/2026 (FS02 y replicación DFS-R, apartado 2.7) · v0.12 · 24/11/2026 (AG de SQL Server en Pacemaker con VIP .27, apartado 2.3.8; FS01: carpetas del espacio de nombres y replicación con DC02, apartado 2.6) · v0.11 · 23/11/2026 (FS01 en VirtualBox: dominio, disco de datos, roles, espacio de nombres y recursos compartidos, apartado 2.6) · v0.10 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing, apartado 2.3.7) · v0.9 · 19/11/2026 (sesión 2 Linux: SQL Server configurado, BKP01 y BKP02, apartado 2.3.6) · v0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
 
 > Documento vivo: se amplía al terminar cada servicio. Lo marcado con **[PENDIENTE DE CONFIRMAR]** hay que verificarlo.
 
 ---
 
-## 1. Estado actual (24/11/2026)
+## 1. Estado actual (27/11/2026)
 
 | VM | Estado | Dónde está | Notas |
 |---|---|---|---|
 | Host Proxmox | Instalado (Proxmox VE 9.2.21, nodo `PROC`) | Servidor físico (192.168.202.3) | Ver [guía del hipervisor](02-guia-instalacion-hipervisor.md) |
-| DC01 | **AD completo** (16/11): bosque `cibernova.local`, 23 OU, 27 grupos, 89 empleados, 6 cuentas adm., 6 cuentas especiales y políticas de contraseña. **DNS configurado y verificado** (18/11, apartado 3.3) y **GPO de seguridad** (18/11, apartado 3.4). Hora con `hora.roa.es`. **No se importó el 17/11 (D-05).** Faltan los grupos `DL_` y la unión del resto de máquinas | **VirtualBox** (exportar a OVA e importar en Proxmox en la sesión 2) | |
-| DC02 | **Promovido el 19/11 en VirtualBox** (DNS + catálogo global), replicando con DC01 | Pendiente de exportar a OVA e importar en Proxmox (VMID 124) junto con DC01 | Ver precauciones del apartado 2.4 y [guía 07](07-guia-dominio-dc02-union.md), apartado 2 |
-| LNX01 | **Proxmox (VMID 128)**: Ubuntu 24.04.5, IP .28 fija, DNS públicos, **SQL Server 2025 Enterprise Developer** con Always On y Agente. **Réplica principal del AG `sqlag_cibernova`** y VIP .27 (24/11) | **Proxmox** | Importación manual (el asistente falló). Apartados 2.3, 2.3.6 y 2.3.8 |
-| LNX02 | **Proxmox (VMID 129)**: clon de LNX01 personalizado, IP .29, **SQL Server 2025 Enterprise Developer** con Always On y Agente. **Réplica secundaria síncrona del AG** (24/11) | Proxmox | Apartados 2.3.4, 2.3.6 y 2.3.8 |
-| BKP01 | **Proxmox (VMID 130)**: clon personalizado (18/11), IP .30, **SQL Server 2025 Express**, **réplica de solo configuración del AG** (24/11) y tercer nodo Pacemaker | Proxmox | Apartados 2.3.4, 2.3.6 y 2.3.8 |
+| DC01 | **AD completo** (16/11): bosque `cibernova.local`, 23 OU, 27 grupos, 89 empleados, 6 cuentas adm., 6 cuentas especiales y políticas de contraseña. **DNS configurado y verificado** (18/11, apartado 3.3) y **GPO de seguridad** (18/11, apartado 3.4). Hora con `hora.roa.es` (raíz de la jerarquía de hora del dominio, 26/11). 63 grupos `DL_`, GPO de unidades y de redirección (26/11). **No se importó el 17/11 (D-05).** | **OVA exportada el 27/11**, pendiente de importar en Proxmox (VMID 123) | Apartado 2.8 |
+| DC02 | **Promovido el 19/11 en VirtualBox** (DNS + catálogo global), replicando con DC01 | **OVA exportada el 27/11**, pendiente de importar en Proxmox (VMID 124) después de DC01 | Ver precauciones del apartado 2.4 y [guía 07](07-guia-dominio-dc02-union.md), apartado 2 |
+| LNX01 | **Proxmox (VMID 128)**: Ubuntu 24.04.5, IP .28 fija, DNS públicos, **SQL Server 2025 Enterprise Developer** con Always On y Agente. Réplica del AG `sqlag_cibernova` (24/11) con `cibernova_pruebas`; Apache + PHP-FPM con `sqlsrv` (26/11); `ufw` activo (26/11) | **Proxmox** | Importación manual (el asistente falló). Apartados 2.3, 2.3.6, 2.3.8 y 2.3.9 |
+| LNX02 | **Proxmox (VMID 129)**: clon de LNX01 personalizado, IP .29, **SQL Server 2025 Enterprise Developer** con Always On y Agente. Réplica del AG (24/11); **réplica principal, VIP .27 y Apache al terminar el 26/11**; Apache + PHP-FPM con `sqlsrv`. `ufw` pendiente | Proxmox | Apartados 2.3.4, 2.3.6, 2.3.8 y 2.3.9 |
+| BKP01 | **Proxmox (VMID 130)**: clon personalizado (18/11), IP .30, **SQL Server 2025 Express**, **réplica de solo configuración del AG** (24/11) y tercer nodo Pacemaker; `ufw` activo (26/11) | Proxmox | Apartados 2.3.4, 2.3.6, 2.3.8 y 2.3.9 |
 | BKP02 | **Proxmox (VMID 131)**: clon de la instantánea `base-limpia` (sin SQL Server), personalizado, IP .31 | Proxmox | Apartado 2.3.6. Bareos pendiente |
-| FS01 | **Configuración base (23/11):** unida al dominio (OU Servidores), D: `Datos` de 150 GB, roles de ficheros, espacio de nombres `\\cibernova.local\empresa` con ABE y cuatro recursos compartidos ocultos | **VirtualBox** (pendiente de importar en Proxmox, VMID 125) | Apartado 2.6 |
-| FS02 | **Configurada (24/11):** unida al dominio (OU Servidores), D: de 150 GB, roles, cuatro recursos compartidos, segundo servidor del espacio de nombres y **DFS-R con FS01** probada | **VirtualBox** (pendiente de importar en Proxmox, VMID 126) | Apartado 2.7 |
+| FS01 | **Configuración base (23/11):** unida al dominio (OU Servidores), D: `Datos` de 150 GB, roles de ficheros, espacio de nombres `\\cibernova.local\empresa` con ABE y cuatro recursos compartidos ocultos. **26/11:** prioridad en las referencias, 50 carpetas con los permisos de la matriz, 89 carpetas personales, cuotas y `Perfiles$` | **OVA exportada el 27/11**, pendiente de importar en Proxmox (VMID 125) | Apartados 2.6 y 2.8 |
+| FS02 | **Configurada (24/11):** unida al dominio (OU Servidores), D: de 150 GB, roles, cuatro recursos compartidos, segundo servidor del espacio de nombres y **DFS-R con FS01** probada; permisos replicados (script 96: 0 errores), cuotas y `Perfiles$` (26/11) | **OVA exportada el 27/11**, pendiente de importar en Proxmox (VMID 126) | Apartados 2.7 y 2.8 |
 | Clientes | Sin crear | — | — |
 
 > **Lista de todo lo pendiente** (requisitos del enunciado y del Anexo I, con su estado): [`docs/gestion/lista-tareas-fase1.md`](../gestion/lista-tareas-fase1.md).
@@ -459,9 +459,153 @@ sudo pcs status && ip -br addr show ens18
 
 Resultado: `ag_cluster` → `Promoted lnx01`, `Unpromoted lnx02 bkp01`; `virtualip Started lnx01`; `ens18` de LNX01 con 192.168.202.28/22 y 192.168.202.27/22.
 
-**Pendiente:** base de datos de prueba en el AG (*seeding* automático a LNX02) y pruebas de conmutación (manual y apagando LNX01) el 26/11, antes del punto de control del 1/12. Firewall de los Linux (1433, 5022, 2224, 3121, 21064/TCP y 5405/UDP).
+**Pendiente (hecho el 26/11, apartado 2.3.9):** base de datos de prueba en el AG, pruebas de conmutación y firewall de los Linux.
 
 **Capturas** (prefijo `2026-11-24_sesion03_`): `*_cluster-tras-reinicio`, `*_ufw-puertos`, `lnx01_error-fecha-certificado`, `lnx01_certificado-creado`, `lnx01_ficheros-certificado`, `lnx01_cert-a-tmp`, `lnx01_scp-certificado`, `lnx01_borrar-tmp`, `lnx02/bkp01_mover-certificado`, `lnx02/bkp01_ficheros-certificado`, `lnx02_crear-certificado`, `bkp01_master-key`, `bkp01_crear-certificado`, `lnx02/bkp01_certificado-importado`, `*_endpoint`, `*_puerto-5022`, `lnx01_crear-ag`, `lnx02/bkp01_join-ag`, `lnx01_replicas-ag`, `*_login-pacemaker`, `lnx01_fichero-passwd`, `*_prueba-pacemakerlogin`, `*_agente-mssql`, `lnx01_pcs-status-ag`, `lnx01_crear-vip-reglas`, `lnx01_pcs-status-vip`.
+
+### 2.3.9 Sesión 4 (26/11): base de datos en el AG, web en alta disponibilidad y firewall
+
+**1. Estado al encender.** El clúster se forma solo, pero la réplica principal sale en **lnx02** y la VIP con ella. Pacemaker no tiene preferencia entre LNX01 y LNX02 (son iguales) y promueve la que está lista primero. **Decisión (Max): no se pone preferencia de nodo**; con `prefers lnx01`, cada vez que LNX01 volviera tras una caída habría otro corte de unos 30 s. Desde aquí se trabaja **por la VIP .27**, que siempre lleva a la principal:
+
+```bash
+sqlcmd -S 192.168.202.27 -U sa -C -W -Q "SELECT @@SERVERNAME AS servidor; SELECT ar.replica_server_name, rs.role_desc, rs.connected_state_desc, rs.synchronization_health_desc FROM sys.availability_replicas ar JOIN sys.dm_hadr_availability_replica_states rs ON ar.replica_id = rs.replica_id;"
+```
+
+Con el AG vacío, lnx01 y lnx02 salen `NOT_HEALTHY` (la salud se calcula con las bases de datos); con una base de datos dentro pasan a `HEALTHY`.
+
+**2. Base de datos de prueba `cibernova_pruebas` en el AG:**
+
+```bash
+# En la secundaria (permite el seeding automático; en BKP01 no, porque no guarda datos)
+sqlcmd -S localhost -U sa -C -Q "ALTER AVAILABILITY GROUP [sqlag_cibernova] GRANT CREATE ANY DATABASE;"
+# Por la VIP (en la principal): recuperación completa y copia completa, obligatorias para entrar en un AG
+sqlcmd -S 192.168.202.27 -U sa -C -Q "CREATE DATABASE cibernova_pruebas; ALTER DATABASE cibernova_pruebas SET RECOVERY FULL; BACKUP DATABASE cibernova_pruebas TO DISK = N'/var/opt/mssql/data/cibernova_pruebas.bak';"
+sqlcmd -S 192.168.202.27 -U sa -C -Q "ALTER AVAILABILITY GROUP [sqlag_cibernova] ADD DATABASE cibernova_pruebas;"
+# En la secundaria: ONLINE, SYNCHRONIZED, HEALTHY
+sqlcmd -S localhost -U sa -C -W -Q "SELECT name, state_desc FROM sys.databases WHERE name = 'cibernova_pruebas'; SELECT DB_NAME(database_id) AS bbdd, synchronization_state_desc, synchronization_health_desc FROM sys.dm_hadr_database_replica_states WHERE is_local = 1;"
+```
+
+Tabla `dbo.prueba_ha (id IDENTITY, servidor SYSNAME, fecha DATETIME2)`: cada escritura guarda `@@SERVERNAME`, para ver después de cada conmutación que los datos siguen.
+
+**3. Conmutación manual.** Siempre con Pacemaker, nunca con `ALTER AVAILABILITY GROUP ... FAILOVER` (con `CLUSTER_TYPE = EXTERNAL` manda Pacemaker; si se conmutara desde SQL Server, la VIP se quedaría en el nodo equivocado):
+
+```bash
+sudo pcs resource move ag_cluster-clone lnx01 --promoted
+sudo pcs constraint location      # vacío: esta versión de pcs borra sola la restricción temporal (cli-prefer)
+```
+
+**4. Prueba de caída de LNX01 (PR-04, BBDD).** Con LNX01 principal: `ping -D 192.168.202.27` en una consola de PROC y `qm stop 128` en otra (corte de corriente). Secuencia observada:
+
+1. lnx01 `OFFLINE`, ninguna réplica `Promoted`, VIP `Stopped` (estado intermedio correcto: Pacemaker no promueve hasta haber hecho *fencing*, para no tener dos principales).
+2. `pcs stonith history` → `reboot of lnx01 successful: delegate=bkp01 ... 17:34:34`.
+3. `Promoted lnx02`, VIP y escrituras en LNX02; LNX01 vuelve sola (reiniciada por `fence_pve`, `qm status 128` → `running`) como secundaria `SYNCHRONIZED/HEALTHY`.
+
+Resultado: **≈ 36 s sin servicio** (36 de 189 pings perdidos, uno por segundo) y **0 datos perdidos** (commit síncrono).
+
+**5. Apache + PHP-FPM** (en LNX01 y LNX02):
+
+```bash
+sudo apt update && sudo apt install -y apache2 php8.3-fpm php8.3-cli php8.3-dev php-pear
+sudo pecl install sqlsrv pdo_sqlsrv
+printf "; priority=20\nextension=sqlsrv.so\n" | sudo tee /etc/php/8.3/mods-available/sqlsrv.ini
+printf "; priority=30\nextension=pdo_sqlsrv.so\n" | sudo tee /etc/php/8.3/mods-available/pdo_sqlsrv.ini
+sudo phpenmod -v 8.3 sqlsrv pdo_sqlsrv && sudo systemctl restart php8.3-fpm
+sudo a2enmod proxy_fcgi setenvif && sudo a2enconf php8.3-fpm && sudo systemctl reload apache2
+php-fpm8.3 -m | grep -i sqlsrv && apachectl -M 2>/dev/null | grep proxy_fcgi
+```
+
+Versiones: Apache 2.4.58 (`mpm_event`), PHP 8.3.6 (FPM), `sqlsrv`/`pdo_sqlsrv` 5.13.3. `pdo_sqlsrv` con prioridad 30 para cargarse después de `pdo`. Los avisos de `pecl` sobre `php.ini` son normales (se activan con `mods-available`).
+
+**6. Apache como recurso de Pacemaker (opción A).** Un solo Apache activo, siempre con la VIP y la réplica principal:
+
+```bash
+# En LNX01 y LNX02: solo Pacemaker arranca Apache (PHP-FPM sigue activo en los dos)
+sudo systemctl disable --now apache2
+# Una sola vez, desde cualquier nodo (la configuración del clúster es común)
+sudo pcs resource create apache ocf:heartbeat:apache configfile=/etc/apache2/apache2.conf statusurl="http://localhost/server-status" op monitor interval=20s timeout=20s --disabled
+sudo pcs constraint colocation add apache with virtualip INFINITY
+sudo pcs constraint order virtualip then apache
+sudo pcs constraint location apache avoids bkp01
+sudo pcs resource enable apache
+```
+
+| Opción | Descripción | Decisión |
+|---|---|---|
+| **A** | Apache solo en el nodo de la VIP | **Elegida (Max):** un único servidor web activo, reglas sencillas, coincide con el diseño |
+| B | Apache clonado en LNX01 y LNX02 | Descartada: más reglas y dos Apache que vigilar para ganar ≈ 1 s |
+| C | Apache fuera de Pacemaker (systemd) | Descartada: un Apache caído no se detectaría y la VIP podría quedarse en un nodo sin web |
+
+Se usa `ocf:heartbeat:apache` y no `systemd:apache2` porque pide `server-status` cada 20 s y detecta un Apache colgado, no solo uno parado. El recurso se crea `--disabled` para que no arranque en cualquier nodo antes de tener sus reglas. `avoids bkp01` es redundante con la colocación (la VIP nunca va a BKP01), pero lo deja explícito.
+
+**7. Desglose de una conmutación planificada** (`journalctl -u pacemaker` en los dos nodos):
+
+| Hora | Nodo | Acción | Tiempo |
+|---|---|---|---|
+| 18:03:01 | — | La web deja de responder | — |
+| 18:03:03 | lnx02 | `stop` de apache y virtualip | 2 s |
+| 18:03:06 | lnx02 | `demote` de `ag_cluster` | 3 s |
+| 18:03:28 | lnx01 | `promote` de `ag_cluster` | **22 s** |
+| 18:03:34 | lnx01 | `start` de virtualip | 6 s (notificaciones `notify=true`) |
+| 18:03:35 | lnx01 | `start` de apache | 1 s |
+| 18:03:36 | — | La web vuelve | **≈ 35 s** |
+
+El 63 % del corte es la promoción del AG: el agente `ocf:mssql:ag` comprueba que la nueva principal tiene todas las transacciones confirmadas (es lo que garantiza RPO 0). Ajustar sus tiempos queda como posible mejora de la Fase 3 (menos espera = más riesgo de promover una réplica atrasada).
+
+**8. Usuario de SQL Server para la web (`web_cibernova`).** La web no usa `sa`: tiene un *login* propio que solo lee y escribe en su base de datos. Los *logins* son de la instancia y **no viajan con el AG**; el usuario de la base de datos sí, y va enlazado al *login* por su SID. Por eso el *login* se crea en las dos réplicas **con el mismo SID** (si no, tras una conmutación el usuario quedaría huérfano y la web no entraría):
+
+```sql
+-- LNX01 (sqlcmd interactivo: la contraseña no queda en el historial)
+CREATE LOGIN web_cibernova WITH PASSWORD = '...', CHECK_POLICY = ON;
+SELECT name, sid FROM sys.sql_logins WHERE name = 'web_cibernova';   -- 0x4A0196600703D245B4146ECB2C1553E9
+-- LNX02, con la misma contraseña y el mismo SID
+CREATE LOGIN web_cibernova WITH PASSWORD = '...', SID = 0x4A0196600703D245B4146ECB2C1553E9, CHECK_POLICY = ON;
+-- Por la VIP: usuario en la base de datos (lo replica el AG)
+CREATE USER web_cibernova FOR LOGIN web_cibernova;
+ALTER ROLE db_datareader ADD MEMBER web_cibernova;
+ALTER ROLE db_datawriter ADD MEMBER web_cibernova;
+```
+
+En BKP01 no se crea (no guarda datos y la web no se conecta a ella). Mejora prevista: usar `svc_web` del dominio (autenticación de AD con *keytab*) cuando los DC estén en Proxmox.
+
+**9. Página de prueba `bbdd.php`** (en LNX01 y LNX02; ficheros en [`configs/linux/web/`](../../configs/linux/web/)). Las credenciales van en `/etc/cibernova/web.ini` (`640 root:www-data`), **fuera de la carpeta web**: aunque Apache enseñara el código, la contraseña no saldría. La conexión es por la **VIP**. Si falla, el usuario solo ve un mensaje genérico y el detalle va al registro. **Riesgo aceptado:** `TrustServerCertificate=yes` (el certificado de SQL Server es autofirmado; Fase 3: certificado propio). El contenido de los dos nodos se copia a mano y se comprueba con `ls -l` (WEB-03: falta elegir método para la aplicación definitiva).
+
+**10. Conmutación con toda la cadena** (VIP → Apache → PHP → SQL Server). En PROC:
+
+```bash
+while true; do r=$(curl -s -m 2 http://192.168.202.27/bbdd.php | sed -n '1p;3p' | tr '\n' ' '); echo "$(date +%T) ${r:-SIN RESPUESTA}"; sleep 1; done
+```
+
+y `sudo pcs resource move ag_cluster-clone lnx02 --promoted`. Última respuesta de lnx01 a las 18:36:15 (fila 2013), primera de lnx02 a las 18:36:44 (fila 3002): **≈ 29 s sin servicio, ninguna fila perdida**.
+
+**Saltos de `IDENTITY`** (2 → 1002 → 2002, 2013 → 3002): SQL Server reserva los valores de 1000 en 1000 en memoria y descarta los no usados al conmutar. **Decisión (Max): se mantiene la caché** y se documenta; `IDENTITY_CACHE = OFF` haría las escrituras más lentas y una aplicación no debe depender de números seguidos.
+
+**11. Firewall `ufw`** (LNX01 y BKP01; LNX02 en la sesión 5). Se activa de nodo en nodo, empezando por uno sin la réplica principal y comprobando `pcs status` después de cada uno (un error en Corosync haría que Pacemaker reiniciara el nodo):
+
+```bash
+sudo ufw default deny incoming && sudo ufw default allow outgoing
+sudo ufw allow from 192.168.200.0/22 to any port 22 proto tcp comment 'SSH administracion'
+sudo ufw allow 80/tcp comment 'Web'          # solo en LNX01 y LNX02
+for ip in 192.168.202.28 192.168.202.29 192.168.202.30; do sudo ufw allow from $ip to any port 5405 proto udp comment 'Corosync'; sudo ufw allow from $ip to any port 2224 proto tcp comment 'pcsd'; sudo ufw allow from $ip to any port 5022 proto tcp comment 'AG endpoint'; sudo ufw allow from $ip to any port 1433 proto tcp comment 'SQL Server'; done
+sudo ufw show added        # comprobar la regla del 22 antes de activar
+sudo ufw enable && sudo ufw status numbered
+```
+
+| Puerto | Servicio | Origen permitido |
+|---|---|---|
+| 22/tcp | SSH (y SFTP más adelante) | 192.168.200.0/22 |
+| 80/tcp | Web | Cualquiera (solo LNX01 y LNX02) |
+| 5405/udp | Corosync (knet) | .28, .29, .30 |
+| 2224/tcp | `pcsd` | .28, .29, .30 |
+| 5022/tcp | *Endpoint* del AG | .28, .29, .30 |
+| 1433/tcp | SQL Server (DB-06) | .28, .29, .30 |
+
+No se abren 3121 (Pacemaker Remote) ni 21064 (DLM), previstos el 24/11, porque no se usan. Resultado: LNX01 con 15 reglas, BKP01 con 13; clúster y web sin cambios. La web entra en SQL Server por la VIP local (interfaz `lo`, que `ufw` permite siempre).
+
+**Por qué `ufw` y no OPNsense en la Fase 1:** OPNsense solo filtra lo que pasa a través de él, y en la red plana los servidores hablan directamente; habría que segmentar la red, cambiar la IP de todas las VMs y montar 2 OPNsense en HA con unas 3 direcciones más del aula, que no quedan libres. Se mantiene la decisión del 16/11 (firewall en cada servidor) y OPNsense con VLAN queda para la Fase 3 [PENDIENTE DE CONFIRMAR si lo pidió el profesorado].
+
+**Al terminar:** `sudo pcs cluster stop --all` (para que no se dispare una conmutación al apagar el nodo principal) y `qm shutdown 128 && qm shutdown 129 && qm shutdown 130`. Réplica principal, VIP y Apache en **lnx02**.
+
+**Capturas** (prefijo `2026-11-26_sesion04_`, 66 en `capturas-sesion04.zip`): `lnx01_pcs-status-inicial`, `lnx01_ag-estado-por-vip`, `lnx01_grant-create-any-database`, `lnx01_bbdd-creada-backup`, `lnx01_bbdd-anadida-ag`, `lnx01_bbdd-sincronizada`, `lnx01_datos-prueba-lnx02`, `lnx01_ag-healthy`, `lnx01_pcs-move-lnx01`, `lnx01_constraints-tras-move`, `lnx01_datos-tras-conmutacion`, `proc_ping-vip-inicio`, `proc_qm-stop-128`, `lnx02_pcs-status-caida-lnx01`, `proc_ping-vip-corte`, `proc_ping-vip-resumen`, `lnx02_pcs-status-tras-caida`, `lnx02_stonith-history`, `lnx02_datos-tras-caida`, `proc_qm-status-128`, `lnx02_lnx01-resincronizada`, `lnx0X_apache-php-instalado`, `lnx0X_pecl-sqlsrv`, `lnx0X_drivers-so`, `lnx0X_sqlsrv-ini`, `lnx0X_pdo-sqlsrv-ini`, `lnx0X_php-sqlsrv`, `lnx0X_nodo-php`, `lnx0X_apache-disabled`, `lnx02_pcs-apache-creado`, `proc_curl-vip-nodo`, `lnx02_pcs-move-web`, `proc_curl-bucle-conmutacion`, `lnx0X_journal-tiempos-conmutacion`, `lnx01_login-web`, `lnx02_login-web-mismo-sid`, `lnx02_usuario-bbdd-web`, `lnx01_web-ini`, `lnx0X_web-ini-permisos`, `lnx_bbdd-php-codigo`, `proc_curl-bbdd-php`, `lnx0X_ficheros-web`, `proc_bucle-cadena-completa`, `lnx01_pcs-move-lnx02`, `lnx01_ufw-*`, `lnx02_pcs-status-tras-ufw-lnx01`, `bkp01_ufw-*`, `proc_curl-bbdd-ufw`, `lnx02_pcs-status-ufw-final`.
 
 ### 2.4 Precauciones con los controladores de dominio
 
@@ -547,9 +691,84 @@ New-Item -Path "D:\Datos\Comun\prueba-replicacion.txt" -ItemType File -Value "Pr
 Get-ChildItem D:\Datos\Comun                                                    # en FS02: aparece el fichero (16:51)
 ```
 
-**Pendiente:** FS01 con prioridad en las referencias (diseño 3.8: DFS-R no bloquea ficheros abiertos; destinos de FS02 como *Último entre todos los destinos*), borrar el fichero de prueba, informe de estado de DFS-R y prueba de caída (PR-03) cuando haya un cliente.
+**6. FS01 con prioridad en las referencias (26/11, por interfaz gráfica).** En cada carpeta, destino `\\FS02\<Carpeta>$` → Propiedades → *Opciones avanzadas* → *Invalidar orden de referencia* → **Último de todos los destinos** (`GlobalLow`). Comprobación:
+```powershell
+Get-DfsnFolder -Path "\\cibernova.local\empresa\*" | ForEach-Object { Get-DfsnFolderTarget -Path $_.Path }
+```
+8 destinos `Online`: FS01 `sitecost-normal` y FS02 `global-low` 📸. **Por qué:** DFS-R no bloquea ficheros abiertos; si dos personas editaran el mismo fichero en FS01 y en FS02 a la vez, al replicar se perdería un cambio. Con FS02 al final, todos trabajan contra FS01 y FS02 solo se usa si FS01 cae. **Alternativa descartada:** *Último de los destinos de igual costo*: hoy funcionaría igual (un solo sitio de AD), pero dejaría de garantizar el orden si se crean sitios por sede. `Get-DfsnFolderTarget` no admite comodines (error 1168): por eso se encadena con `Get-DfsnFolder`.
+
+**7. Borrado replicado y estado de DFS-R (26/11).** Se borra `prueba-replicacion.txt` en FS01 y desaparece en FS02 📸. Informe de estado (Administración de DFS → Replicación → Crear informe de diagnóstico): **0 errores**, 2 de 2 servidores; una advertencia ("el servicio se reinicia con frecuencia") explicada por los apagados del laboratorio, sin eventos de nivel Error en el registro *DFS Replication* 📸.
+
+**Pendiente:** prueba de caída (PR-03) cuando haya un cliente.
 
 ---
+
+### 2.8 Permisos, carpetas personales, perfiles y unidades de red (26–27/11, Oriol)
+
+Todo en VirtualBox, con DC01, DC02, FS01 y FS02 encendidos. Los permisos y las carpetas se aplican en FS01 y llegan a FS02 por DFS-R.
+
+#### 2.8.1 Matriz de permisos y modelo AGDLP
+
+La matriz completa (P-01 a P-44, 50 carpetas, 63 grupos) está en [`08-matriz-permisos.md`](08-matriz-permisos.md), con las decisiones justificadas. Resumen:
+
+- **AGDLP:** usuario → grupo global `G_<Departamento>` → grupo de dominio local `DL_<Carpeta>_<Nivel>` → permiso NTFS. Solo los `DL_` aparecen en las ACL. Nuevo grupo global `G_RRHH_Nominas_Consulta` (rosa.martinez, P-08): los permisos van siempre a grupos.
+- **Niveles:** CT, M, C, L (listar solo la carpeta; con ABE cada uno ve solo lo que puede abrir), D (depósito con `CREATOR OWNER`), I (intercambio) y X (denegar, solo becarios en Proyectos).
+- **En cada carpeta con la herencia cortada:** SYSTEM y Administradores con control total y **DERECHOS DE PROPIETARIO solo con "Permisos de lectura"** (quien crea un fichero no puede cambiarle los permisos: el nivel M del Anexo queda de verdad sin "cambiar permisos").
+- **Validación previa:** simulación con los 89 usuarios del CSV: 0 errores y pruebas 1–8 y 13 correctas.
+
+#### 2.8.2 Ejemplo manual: `RRHH\Nominas` por interfaz gráfica
+
+Para entender el proceso antes de automatizarlo: grupos `G_RRHH_Nominas_Consulta`, `DL_RRHH_Nominas_M` y `DL_RRHH_Nominas_C` (seguridad) en DC01; en FS01, herencia deshabilitada, SYSTEM y Administradores CT, DERECHOS DE PROPIETARIO, los dos `DL_` (Modificar y Lectura y ejecución) y auditoría (Todos, éxito y error). **Acceso efectivo:** rosa.martinez solo lectura; irene.moreno (RRHH sin nóminas) sin acceso 📸.
+
+**Incidencia:** al deshabilitar la herencia se eligió convertir los permisos heredados (quedaron *Usuarios* y *CREATOR OWNER*, que se quitaron) y las entradas de los `DL_` no se guardaron: Rosa salía sin ningún permiso. Diagnóstico: `Get-ADGroupMember` (AD correcto) e `icacls "D:\Datos\Departamentos\RRHH\Nominas"` (faltaban los `DL_`). Se volvieron a añadir.
+
+`auditpol /get /subcategory:"Sistema de archivos"` en FS01 → **Aciertos y errores**: la GPO `GPO_Servidores_Auditoria` está aplicada y las SACL registran eventos 📸.
+
+#### 2.8.3 Script `06-carpetas-permisos.ps1` y comprobación con el 96
+
+En FS01, con el módulo de AD (`Install-WindowsFeature RSAT-AD-PowerShell`):
+```powershell
+powershell -ExecutionPolicy Bypass -File .\06-carpetas-permisos.ps1 -Simular   # no cambia nada
+powershell -ExecutionPolicy Bypass -File .\06-carpetas-permisos.ps1            # 63 DL_, 50 carpetas, 50 ACL, 3 auditorías
+powershell -ExecutionPolicy Bypass -File .\96-comprobar-carpetas-permisos.ps1  # en FS01 y en FS02: 0 errores
+```
+El script es **idempotente** (rehace las reglas explícitas según el plan; lo hecho a mano en Nominas lo deja igual) y trabaja con SID, sin tocar el propietario. **Incidencias:**
+- v1.0 → *No se encuentra ninguna sobrecarga para FileSystemAccessRule*; v1.1 y v1.2 → *No se puede convertir a NULL ... FileSystemRights*. **Causa:** PowerShell no distingue mayúsculas en las variables, y el bucle `foreach ($r in $Recursos)` sobrescribía `$R` (el tipo de los permisos). **v1.3:** nombres distintos (`$FSR`, `$Rec`). Los intentos fallidos se pararon antes de cambiar ningún permiso.
+- El 96 v1.1 daba un falso error en `Comun\Intercambio`: Windows añade *Synchronize* a la regla de crear (`icacls` → `(S,WD,AD)`). La v1.2 compara la suma de derechos de cada grupo.
+- En FS02, el 96 falló la primera vez porque faltaba el módulo de AD; aun así ya se veían las reglas de los `DL_`, replicadas por DFS-R.
+
+#### 2.8.4 Carpetas personales, unidad H:, perfiles móviles y cuotas (script 07)
+
+`07-personales-cuotas-perfiles.ps1` (en FS01, con el CSV al lado; en FS02 con `-SoloCuotas`):
+- **89 carpetas** `Personales\<usuario>`: solo el usuario con Modificar (única excepción a AGDLP, porque la carpeta es suya), SYSTEM y Administradores CT (acceso técnico y copias), DERECHOS DE PROPIETARIO solo lectura de permisos. Ni su responsable ni Dirección entran; ABE oculta las de los demás.
+- **H:** en la cuenta de AD (`HomeDrive`/`HomeDirectory` = `\\cibernova.local\empresa\Personales\<usuario>`).
+- **Perfil móvil** (`ProfilePath` = `\\cibernova.local\empresa\Perfiles\<usuario>`) para los 16 empleados con perfil "Movil" (Dirección y Comercial).
+- **`Perfiles$`** (`D:\datos\Perfiles`, ABE, sin caché sin conexión) con los permisos que recomienda Microsoft: Usuarios autentificados solo pueden crear su carpeta en la raíz y `CREATOR OWNER` tiene control total dentro de la suya.
+- **Cuotas FSRM:** plantillas `CiberNova personal 2 GB`, `5 GB` y `500 MB` con límite estricto y aviso al 90 % (evento de advertencia en el registro de Aplicación): 65 × 2 GB, 20 × 5 GB, 4 × 500 MB en FS01 y en FS02 (las cuotas no se replican con DFS-R) 📸. El aviso por correo necesitaría un servidor SMTP [PENDIENTE DE CONFIRMAR si basta con el evento].
+- **Pendiente [PENDIENTE DE CONFIRMAR con Max]:** el Anexo pide que la carpeta personal la cree el script de alta; propuesta: que el 02 (v2.3) llame al 07 en cada alta.
+
+**Perfiles en DFS:** `Perfiles$` también en FS02 y carpeta `Perfiles` en `\\cibernova.local\empresa` con destinos FS01 y FS02, grupo de replicación (FS01 principal, malla completa) y FS02 como último destino. **Por qué:** los perfiles móviles también deben ser redundantes, y Microsoft solo admite perfiles sobre DFS-R si se usa un único destino a la vez, que es lo que garantiza la prioridad de FS01.
+
+#### 2.8.5 GPO de unidades de red y de redirección de carpetas
+
+- **`GPO_Usuarios_Unidades`** (vinculada a la OU CiberNova; Configuración de usuario → Preferencias → Asignaciones de unidad; acción *Actualizar*, volver a conectar y **destino de nivel de elemento por grupo**): **G:** `\\cibernova.local\empresa\Departamentos` (`G_Sede_Barcelona` O `G_Sede_Madrid` O `G_Sede_Valencia`), **P:** `...\Proyectos` (`DL_Proyectos_L`: solo quien tiene algún proyecto) y **S:** `...\Comun` (`DL_Comun_C`: empleados y recepción) 📸. La H: va en la cuenta de AD.
+- **`GPO_Usuarios_Redireccion`** (OU CiberNova): filtrado de seguridad solo `G_Sede_*`; *Usuarios autentificados* con Leer (necesario para procesar la GPO); `G_Direccion` y `G_Comercial` con **Denegar** "Aplicar directiva de grupo" (tienen perfil móvil) 📸. Documentos y Escritorio → `\\cibernova.local\empresa\Personales\%USERNAME%\Documentos` y `\Escritorio`, **sin derechos exclusivos** (si no, Windows cambiaría los permisos de la carpeta personal) y moviendo el contenido. Al guardar, Windows lo convierte en "Crear una carpeta para cada usuario en la ruta raíz" con raíz `...\Personales`, que es equivalente 📸. Incidencia: un punto al final de la ruta de Escritorio, corregido.
+- **Pendiente:** perfil obligatorio de `recepcion.bcn` (necesita un cliente) y comprobar unidades, redirección y perfil móvil desde CLI01/CLI02 (pruebas 9, 10 y 12 del Anexo I).
+
+#### 2.8.6 Hora del dominio
+
+Las VM tenían horas distintas. Se configura la jerarquía de hora del dominio (Kerberos falla con más de 5 minutos de diferencia):
+```powershell
+# DC01 (emulador de PDC): hora oficial de España
+tzutil /s "Romance Standard Time"; w32tm /config /manualpeerlist:"hora.roa.es,0x8 es.pool.ntp.org,0x8" /syncfromflags:manual /reliable:yes /update; Restart-Service w32time; w32tm /resync /rediscover
+# DC02, FS01 y FS02: desde el dominio
+tzutil /s "Romance Standard Time"; w32tm /config /syncfromflags:domhier /update; Restart-Service w32time; w32tm /resync /force
+```
+Comprobado en FS02: `w32tm /query /source` → `DC01.cibernova.local`. En Proxmox habrá que comprobar si la red del aula deja pasar NTP (UDP 123) [PENDIENTE DE CONFIRMAR].
+
+#### 2.8.7 Exportación de los Windows a OVA (27/11)
+
+Con todo lo anterior hecho, se exportan a OVA las máquinas Windows de VirtualBox (DC01, DC02, FS01 y FS02 [PENDIENTE DE CONFIRMAR que son las cuatro]), a la espera de importarlas en Proxmox (VMID 123–126) con el procedimiento del apartado 2.2 (de una en una, DC01 primero, borrando cada OVA de `local` después). **Desde la exportación, las copias de VirtualBox no se tocan:** los cambios no llegarían a Proxmox y, en los DC, encender una copia antigua después de importar rompería la replicación (*USN rollback*, apartado 2.4).
 
 ## 3. DC01 – Controlador de dominio principal
 
@@ -754,7 +973,7 @@ Get-ADUser -Filter * -SearchBase "OU=Cuentas especiales,OU=CiberNova,DC=cibernov
 
 Las contraseñas no se escriben en la documentación, Drive ni Git (requisito del Anexo I y de la auditoría de la Fase 3).
 
-**Riesgo aceptado (17/11/2026):** durante el montaje (Fases 1 y 2) se usan contraseñas sencillas para poder recordarlas. Al empezar la Fase 3 se cambian todas y se guardan en un gestor de contraseñas (KeePassXC o Proton Pass, **[PENDIENTE DE CONFIRMAR]**). La red del aula es compartida con otros grupos, así que no se reutiliza la misma contraseña en todas las máquinas. Propuesta: mantener desde ya un inventario de **dónde** se usa cada credencial (nunca la contraseña): `admincibernova` en cada Ubuntu, `hacluster` (Pacemaker), usuario de `fence_pve` en Proxmox, `sa` y login del AG en SQL Server, `svc_backup` (Bareos).
+**Riesgo aceptado (17/11/2026):** durante el montaje (Fases 1 y 2) se usan contraseñas sencillas para poder recordarlas. Al empezar la Fase 3 se cambian todas y se guardan en un gestor de contraseñas (KeePassXC o Proton Pass, **[PENDIENTE DE CONFIRMAR]**). La red del aula es compartida con otros grupos, así que no se reutiliza la misma contraseña en todas las máquinas. Propuesta: mantener desde ya un inventario de **dónde** se usa cada credencial (nunca la contraseña): `admincibernova` en cada Ubuntu, `hacluster` (Pacemaker), usuario de `fence_pve` en Proxmox, `sa`, `pacemakerLogin` y `web_cibernova` (este también en `/etc/cibernova/web.ini` de LNX01 y LNX02) en SQL Server, `svc_backup` (Bareos).
 
 ---
 
@@ -765,7 +984,7 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 - [x] Ejecutar el script 02 v2.2 en DC01 y hacer las capturas (16/11).
 - [ ] Exportar DC01 a OVA, importarlo en Proxmox y comprobar red, DNS (`dcdiag /test:dns`) y rendimiento (pasa a la sesión 2, D-05).
 - [x] Crear DC02 (instalación limpia, no clon de DC01), promoverlo y comprobar la replicación (`repadmin /replsummary`): 19/11, en VirtualBox.
-- [ ] Exportar DC01 y DC02 a OVA e importarlos en Proxmox (123 y 124, DC01 primero).
+- [ ] Exportar DC01 y DC02 a OVA e importarlos en Proxmox (123 y 124, DC01 primero). **OVA exportadas el 27/11** (también FS01 y FS02); falta importar.
 - [x] LNX01 instalada en VirtualBox y exportada a OVA (17/11, apartado 2.3.1).
 - [x] Importar LNX01 en Proxmox (VMID 128, 17/11). WEB01 y las demás VMs antiguas, borradas.
 - [x] Netplan fijo de LNX01 con DNS públicos (17/11).
@@ -774,15 +993,19 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 - [x] `mssql-conf setup` en LNX01, LNX02 (Enterprise Developer) y BKP01 (Express); `hadr.hadrenabled` activado en las tres y Agente en LNX01/LNX02 (19/11).
 - [x] Pacemaker + Corosync (`cibernova-g3`) de 3 nodos y fencing con `fence_pve`, probado (23/11, apartado 2.3.7).
 - [x] AG de SQL Server `sqlag_cibernova` (certificados, *endpoints*, réplica de solo configuración en BKP01), recursos de Pacemaker y VIP .27 (24/11, apartado 2.3.8).
-- [ ] Base de datos de prueba en el AG y pruebas de conmutación (26/11; punto de control 1/12).
+- [x] Base de datos de prueba en el AG y pruebas de conmutación manual y de caída (26/11, apartado 2.3.9; punto de control del 1/12 cumplido).
+- [x] Apache + PHP-FPM con `sqlsrv` en LNX01/LNX02 y Apache en Pacemaker con la VIP (26/11, apartado 2.3.9).
+- [ ] Firewall `ufw` en LNX02 (LNX01 y BKP01 hechos el 26/11) y BKP02.
+- [ ] SFTP con *chroot* en LNX01 y LNX02 y prueba de caída.
+- [ ] Aplicación web definitiva (WEB-01) y método para copiar el contenido a los dos nodos (WEB-03).
 - [ ] **Todo subido a GitHub antes del 4/12/2026** (cierre del repositorio).
 - [x] OU Equipos y Servidores: script 01 v2.1 ejecutado en DC01, 23 OU (16/11).
 - [x] Ejecutar `03-cuentas-especiales.ps1` en DC01: 26 comprobaciones OK (16/11).
 - [ ] Caducidad de `auditor.ext` cuando se sepa el fin de la Fase 3.
-- [ ] GPO pendientes: privilegio de copia para `svc_backup`; perfiles (móvil, redirección, obligatorio de `recepcion.bcn`) y unidades de red.
-- [ ] Carpetas personales (creadas por el script de alta), cuotas y perfiles (cuando esté el servidor de ficheros).
+- [ ] GPO pendientes: privilegio de copia para `svc_backup` y perfil obligatorio de `recepcion.bcn`. ~~Perfil móvil, redirección y unidades de red~~ (configurados el 26/11, apartado 2.8.5; falta probarlos desde un cliente).
+- [x] Carpetas personales, cuotas y perfiles (26/11, script 07, apartado 2.8.4). Falta que las cree el script de alta (02 v2.3) [PENDIENTE DE CONFIRMAR].
 - [x] Configurar el DNS de DC01 (script 04, 17/11; deshecho con el 84 y rehecho por la interfaz gráfica el 18/11; reenviadores 8.8.8.8 y 1.1.1.1).
 - [x] GPO de seguridad (script 05 v1.1, 18/11): 25 OK.
 - [ ] Unir todas las máquinas al dominio ([guía 07](07-guia-dominio-dc02-union.md)). **FS01 unida el 23/11** (apartado 2.6) y **FS02 el 24/11** (apartado 2.7).
 - [x] FS01 en VirtualBox: disco de datos, roles, espacio de nombres con ABE y cuatro recursos compartidos (23/11, apartado 2.6).
-- [ ] FS01: ~~carpetas DFS~~ (hecho el 24/11), permisos NTFS (script 06), auditoría y cuotas. FS02 y DFS-R.
+- [x] FS01 y FS02: carpetas DFS (24/11), DFS-R, prioridad de referencias, permisos NTFS con la matriz (script 06), auditoría y cuotas (26/11, apartados 2.7 y 2.8).

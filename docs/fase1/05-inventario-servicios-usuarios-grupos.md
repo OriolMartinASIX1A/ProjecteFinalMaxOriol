@@ -1,9 +1,9 @@
 # Inventario de servicios, usuarios y grupos – Fase 1
 
 **Grupo 3:** Max · Oriol
-**Versión:** 0.14 (parcial) · 24/11/2026 (FS02 y DFS-R) · v0.13 · 24/11/2026 (AG `sqlag_cibernova` y VIP .27 en Pacemaker) · v0.12 · 23/11/2026 (FS01 en VirtualBox: dominio, roles, espacio de nombres y recursos compartidos) · v0.11 · 23/11/2026 (clúster Pacemaker `cibernova-g3` de 3 nodos con fencing) · v0.10 · 19/11/2026 (SQL Server configurado; BKP01 y BKP02 creadas) · v0.9 · 19/11/2026 (DC02 promovido y replicando) · v0.8 · 19/11/2026 (estado de AD/DNS y DC02) · v0.7 · 18/11/2026 (DNS y GPO de DC01)
+**Versión:** 0.16 (parcial) · 27/11/2026 (Oriol, 26/11: 63 grupos `DL_` y matriz de permisos, carpetas personales, cuotas, perfiles, GPO de usuario y scripts 06, 07 y 96; OVA de los Windows exportadas el 27/11) · v0.15 · 27/11/2026 (sesión 4 Linux: base de datos en el AG, Apache + PHP-FPM en Pacemaker, `web_cibernova`, `ufw`) · v0.14 · 24/11/2026 (FS02 y DFS-R) · v0.13 · 24/11/2026 (AG `sqlag_cibernova` y VIP .27 en Pacemaker) · v0.12 · 23/11/2026 (FS01 en VirtualBox: dominio, roles, espacio de nombres y recursos compartidos) · v0.11 · 23/11/2026 (clúster Pacemaker `cibernova-g3` de 3 nodos con fencing) · v0.10 · 19/11/2026 (SQL Server configurado; BKP01 y BKP02 creadas) · v0.9 · 19/11/2026 (DC02 promovido y replicando) · v0.8 · 19/11/2026 (estado de AD/DNS y DC02) · v0.7 · 18/11/2026 (DNS y GPO de DC01)
 
-> Entregable obligatorio de la Fase 1 (Anexo I, apartado 12). Esta versión recoge lo que ya está creado en el dominio. Faltan la matriz de permisos P-01 a P-44, los grupos `DL_`, el diagrama de anidamiento y las evidencias de las pruebas.
+> Entregable obligatorio de la Fase 1 (Anexo I, apartado 12). Esta versión recoge lo que ya está creado en el dominio. La matriz de permisos P-01 a P-44 y los 63 grupos `DL_` están en [`08-matriz-permisos.md`](08-matriz-permisos.md). Faltan el diagrama de anidamiento y las evidencias de las pruebas.
 
 ---
 
@@ -12,9 +12,9 @@
 | Servicio | Servidor(es) | IP | Estado |
 |---|---|---|---|
 | Virtualización | Proxmox VE | 192.168.202.3 | Funcionando |
-| AD DS + DNS | DC01 / DC02 | .23 / .24 | DC01 funcionando en VirtualBox (pendiente de importar). DNS configurado y verificado (18/11; reenviadores 8.8.8.8 y 1.1.1.1) y GPO de seguridad (18/11) · **DC02 promovido el 19/11 en VirtualBox** (DNS + catálogo global), replicando con DC01; reenviadores 8.8.8.8 y 1.1.1.1 y DNS cruzado. Pendiente: importar los dos DC en Proxmox |
-| Ficheros (DFS, FSRM) | FS01 / FS02 | .25 / .26 | **FS01 en VirtualBox (23/11):** unida al dominio (OU Servidores), D: `Datos` de 150 GB, roles DFS-N, DFS-R y FSRM, espacio de nombres `\\cibernova.local\empresa` (modo 2008, ABE) y recursos `Personales$`, `Departamentos$`, `Proyectos$`, `Comun$` (ABE; *Usuarios autentificados* en el recurso, permisos reales en NTFS pendientes). **FS02 en VirtualBox (24/11):** unida al dominio, mismos recursos compartidos, segundo servidor del espacio de nombres y **DFS-R con FS01** (cuatro grupos, prueba OK). Pendiente: prioridad de FS01, permisos NTFS, cuotas e importación en Proxmox |
-| Web + SFTP + SQL Server (VIP) | LNX01 / LNX02 | .27 (VIP) · .28 / .29 | LNX01 (VMID 128, .28) y LNX02 (VMID 129, .29) en Proxmox con SQL Server 2025 **Enterprise Developer** configurado, Always On y Agente activados (19/11). **Clúster Pacemaker `cibernova-g3`** de 3 nodos (LNX01, LNX02, BKP01) con fencing `fence_pve` probado (23/11). **AG `sqlag_cibernova`** (LNX01 principal, LNX02 secundaria síncrona, BKP01 solo configuración) gestionado por Pacemaker y **VIP .27** junto a la principal (24/11). Falta: base de datos en el AG, prueba de conmutación, web y SFTP |
+| AD DS + DNS | DC01 / DC02 | .23 / .24 | DC01 funcionando en VirtualBox (pendiente de importar). DNS configurado y verificado (18/11; reenviadores 8.8.8.8 y 1.1.1.1) y GPO de seguridad (18/11) · **DC02 promovido el 19/11 en VirtualBox** (DNS + catálogo global), replicando con DC01; reenviadores 8.8.8.8 y 1.1.1.1 y DNS cruzado. **OVA de los dos DC exportadas el 27/11**; pendiente: importarlas en Proxmox |
+| Ficheros (DFS, FSRM) | FS01 / FS02 | .25 / .26 | **FS01 en VirtualBox (23/11):** unida al dominio (OU Servidores), D: `Datos` de 150 GB, roles DFS-N, DFS-R y FSRM, espacio de nombres `\\cibernova.local\empresa` (modo 2008, ABE) y recursos `Personales$`, `Departamentos$`, `Proyectos$`, `Comun$` (ABE; *Usuarios autentificados* en el recurso, permisos reales en NTFS). **FS02 en VirtualBox (24/11):** unida al dominio, mismos recursos compartidos, segundo servidor del espacio de nombres y **DFS-R con FS01** (cuatro grupos, prueba OK). **26/11:** FS01 con prioridad (`GlobalLow`), 50 carpetas con los permisos de la matriz (script 06; 96: 0 errores en FS01 y FS02), 89 carpetas personales y cuotas en los dos servidores (script 07), carpeta DFS `Perfiles`. **OVA exportadas el 27/11**; pendiente: importarlas en Proxmox |
+| Web + SFTP + SQL Server (VIP) | LNX01 / LNX02 | .27 (VIP) · .28 / .29 | LNX01 (VMID 128, .28) y LNX02 (VMID 129, .29) en Proxmox con SQL Server 2025 **Enterprise Developer** configurado, Always On y Agente activados (19/11). **Clúster Pacemaker `cibernova-g3`** de 3 nodos (LNX01, LNX02, BKP01) con fencing `fence_pve` probado (23/11). **AG `sqlag_cibernova`** (LNX01 principal, LNX02 secundaria síncrona, BKP01 solo configuración) gestionado por Pacemaker y **VIP .27** junto a la principal (24/11). **26/11:** base de datos de prueba `cibernova_pruebas` en el AG, conmutación manual y caída de LNX01 probadas (≈ 36 s, 0 datos perdidos); **Apache 2.4 + PHP-FPM 8.3** con `sqlsrv`/`pdo_sqlsrv` en los dos nodos y recurso `apache` de Pacemaker con la VIP; página `bbdd.php` con el login `web_cibernova`; `ufw` en LNX01 (LNX02 pendiente). Falta: aplicación web definitiva y SFTP |
 | DHCP (Kea) | LNX01 / LNX02 | .28 / .29 | Sin crear |
 | Copias (Bareos) | BKP01 / BKP02 | .30 / .31 | BKP01 (VMID 130) y BKP02 (VMID 131) creadas y personalizadas en Proxmox. BKP01 con SQL Server 2025 **Express** y Always On (futura réplica de solo configuración del AG). Bareos sin instalar |
 
@@ -117,7 +117,16 @@ Miembros esperados según `usuarios_cibernova.csv` y la lógica del script (comp
 
 ## 4. Grupos de dominio local (permisos)
 
-**[PENDIENTE]:** se crearán con el servidor de ficheros siguiendo el modelo **AGDLP** (`DL_<Carpeta>_<Nivel>`), junto con la matriz de permisos P-01 a P-44.
+**Creados el 26/11/2026** con [`06-carpetas-permisos.ps1`](../../scripts/windows/06-carpetas-permisos.ps1) (v1.3) en `OU=Grupos,OU=CiberNova`, modelo **AGDLP** (`DL_<Carpeta>_<Nivel>`): **63 grupos `DL_`** de dominio local, con los grupos globales `G_` dentro. La lista completa (nivel, miembros, carpeta y requisitos) y la matriz P-01 a P-44 están en [`08-matriz-permisos.md`](08-matriz-permisos.md), apartados 4 y 5. Comprobados con `96-comprobar-carpetas-permisos.ps1` (v1.2): 0 errores en FS01 y FS02.
+
+**Grupo global nuevo:** `G_RRHH_Nominas_Consulta` (rosa.martinez), para dar a la responsable de Administración consulta de `RRHH\Nominas` (P-08) sin poner permisos a un usuario.
+
+**Grupos de las GPO de usuario (26/11):**
+
+| GPO | Se aplica a | Qué hace |
+|---|---|---|
+| `GPO_Usuarios_Unidades` | Todos los usuarios de la OU CiberNova, con destino por grupo en cada unidad | G: (`G_Sede_*`), P: (`DL_Proyectos_L`), S: (`DL_Comun_C`) |
+| `GPO_Usuarios_Redireccion` | `G_Sede_Barcelona`, `G_Sede_Madrid`, `G_Sede_Valencia`; denegada a `G_Direccion` y `G_Comercial` | Documentos y Escritorio a `Personales\%USERNAME%` |
 
 ---
 
@@ -159,6 +168,14 @@ Las cuentas adm. las crea el script 02 y las demás el script 03; los dos se eje
 | auditor.ext | Creada **deshabilitada**; horario L-V 8:00-20:00; grupo `G_Auditor_Externo`; el script no la vuelve a deshabilitar | Deshabilitada hasta que lo indique el profesorado, caduca al final de la Fase 3, horario L-V 8-20 | **Fecha de caducidad** (fin de la Fase 3): `-CaducidadAuditor AAAA-MM-DD`; permisos de consulta en Sistemas\Documentacion y Legal\Comite_Seguridad |
 | svc_backup, svc_web, svc_bbdd, svc_ia | Contraseña aleatoria de **32 caracteres**, no caduca, la cuenta no puede cambiarla; grupo `G_Cuentas_Servicio` | Sin inicio de sesión interactivo, mínimo privilegio, contraseñas largas gestionadas de forma segura | GPO que deniega el inicio de sesión local y por RDP a `G_Cuentas_Servicio`; privilegio de copia de seguridad para svc_backup |
 
+### 6.2 Logins de SQL Server (no son cuentas del dominio)
+
+| Login | Dónde | Permisos | Uso |
+|---|---|---|---|
+| `sa` | LNX01, LNX02, BKP01 | `sysadmin` | Solo administración (`sqlcmd`); nunca en aplicaciones |
+| `pacemakerLogin` | LNX01, LNX02, BKP01 | `ALTER, CONTROL, VIEW DEFINITION` sobre `sqlag_cibernova` y `VIEW SERVER STATE` (24/11) | Agente de Pacemaker (`/var/opt/mssql/secrets/passwd`, `400 root`) |
+| `web_cibernova` | LNX01 y LNX02, **mismo SID** (26/11) | `db_datareader` + `db_datawriter` en `cibernova_pruebas` | Web (`/etc/cibernova/web.ini`, `640 root:www-data`). Mejora prevista: sustituirlo por `svc_web` del dominio |
+
 **Decisiones (16/11/2026):**
 - **Cuentas de servicio normales en lugar de gMSA.** Las gMSA (la contraseña la cambia Windows automáticamente) solo funcionan en servidores Windows, y `svc_web`, `svc_bbdd` y `svc_ia` se usarán en Ubuntu. Para tener un único procedimiento se usan cuentas normales con contraseñas de 32 caracteres guardadas cifradas, con rotación manual documentada (memoria técnica, apartado 5.4).
 - **`recepcion.bcn` y las svc_ con contraseña que no caduca:** como no pueden cambiar su propia contraseña, si caducara la cuenta quedaría bloqueada. La cambia Sistemas según el procedimiento.
@@ -175,16 +192,17 @@ Las cuentas adm. las crea el script 02 y las demás el script 03; los dos se eje
 | [`scripts/windows/02-alta-usuarios.ps1`](../../scripts/windows/02-alta-usuarios.ps1) (v2.2) | Políticas de contraseña, 89 empleados, grupos, restricciones de becarios, 6 cuentas adm. y sus privilegios. Errores de la v1 y correcciones: [memoria técnica, apartado 5.2](03-memoria-tecnica.md#52-error-de-la-versión-1-y-corrección) |
 | [`scripts/windows/03-cuentas-especiales.ps1`](../../scripts/windows/03-cuentas-especiales.ps1) (v1.0) | recepcion.bcn, auditor.ext y las 4 cuentas de servicio, con sus restricciones y grupos |
 | [`scripts/windows/04-configurar-dns.ps1`](../../scripts/windows/04-configurar-dns.ps1) (v1.0) | Configuración del DNS de DC01 (pendiente de ejecutar) |
-| Carpetas personales | **[PENDIENTE]** Las debe crear el script de alta (condición obligatoria del Anexo I): nueva versión del script 02 cuando exista el servidor de ficheros |
-| Carpetas compartidas, grupos `DL_` y permisos | **[PENDIENTE]** Script nuevo (propuesta: `05-carpetas-permisos.ps1`) |
+| [`scripts/windows/07-personales-cuotas-perfiles.ps1`](../../scripts/windows/07-personales-cuotas-perfiles.ps1) (v1.0) | 89 carpetas personales (solo el usuario con Modificar), unidad H: y perfil móvil en AD, recurso `Perfiles$` y cuotas FSRM (2 GB / 5 GB / 500 MB, aviso al 90 %); en FS02 solo las cuotas (`-SoloCuotas`). **Pendiente:** que el script de alta lo llame en cada alta (Anexo I) [PENDIENTE DE CONFIRMAR] |
+| [`scripts/windows/06-carpetas-permisos.ps1`](../../scripts/windows/06-carpetas-permisos.ps1) (v1.3) | 50 carpetas del Anexo I, 63 grupos `DL_` + `G_RRHH_Nominas_Consulta`, permisos NTFS de la matriz y auditoría (SACL) en Nominas, Expedientes y Proyectos\Sanitario. Modo `-Simular`; idempotente |
+| [`scripts/windows/96-comprobar-carpetas-permisos.ps1`](../../scripts/windows/96-comprobar-carpetas-permisos.ps1) (v1.2) | Compara AD y las ACL con la matriz (solo lee); en FS01 y FS02 |
 | Movimientos de personal | **[PENDIENTE]** (Anexo I, apartado 11) |
 
 ## 8. Pendiente para completar el inventario
 
-- [ ] Matriz de permisos (carpetas en filas, grupos en columnas).
+- [x] Matriz de permisos (carpetas en filas, grupos en columnas): [`08-matriz-permisos.md`](08-matriz-permisos.md) (26/11).
 - [ ] Diagrama de OU y de anidamiento de grupos.
 - [ ] Script de movimientos de personal.
 - [ ] Evidencias de las 15 pruebas de verificación.
-- [ ] Carpetas personales creadas por el script de alta.
+- [ ] Carpetas personales creadas por el script de alta (hoy las crea el script 07, 26/11).
 
 Lista completa: [`docs/gestion/lista-tareas-fase1.md`](../gestion/lista-tareas-fase1.md) (apartados 2, 5, 6 y 15).

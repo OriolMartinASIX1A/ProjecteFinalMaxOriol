@@ -12,7 +12,7 @@ Diseño, implantación, IA aplicada y auditoría de la infraestructura virtualiz
 | 2 – IA aplicada | 2.º | Pendiente |
 | 3 – Seguridad y auditoría | 3.º | Pendiente |
 
-**Versión:** V20 (24/11/2026) · historial en [`VERSION.md`](VERSION.md)
+**Versión:** V21 (27/11/2026) · historial en [`VERSION.md`](VERSION.md)
 
 ## Estructura del repositorio
 
@@ -24,7 +24,8 @@ Diseño, implantación, IA aplicada y auditoría de la infraestructura virtualiz
 │   │   ├── 02-guia-instalacion-hipervisor.md
 │   │   ├── 03-memoria-tecnica.md
 │   │   ├── 05-inventario-servicios-usuarios-grupos.md
-│   │   └── 07-guia-dominio-dc02-union.md
+│   │   ├── 07-guia-dominio-dc02-union.md
+│   │   └── 08-matriz-permisos.md
 │   ├── gestion/          Lista de tareas, calendario, bitácora y desfases
 │   │   ├── lista-tareas-fase1.md
 │   │   ├── calendario-fase1.md
@@ -35,24 +36,25 @@ Diseño, implantación, IA aplicada y auditoría de la infraestructura virtualiz
 │   └── linux/            Bash / Ansible
 └── configs/
     ├── windows/          Exportaciones de configuración
-    └── linux/            Ficheros de configuración versionados
+    └── linux/            Ficheros de configuración versionados (web, Pacemaker, ufw)
 ```
 
 ## Entregables de la Fase 1
 
 | Entregable | Fichero | Estado |
 |---|---|---|
-| Memoria del proyecto (exportada de Google Docs) | [`docs/Proyecto-memoria.pdf`](docs/Proyecto-memoria.pdf) | PDF del 16/11 (con capturas de Proxmox y DC01); regenerar con las capturas nuevas |
-| Documento de diseño de la infraestructura | [`docs/fase1/01-documento-diseno.md`](docs/fase1/01-documento-diseno.md) | Borrador v0.6 (faltan diagramas de red y cerrar propuestas) |
+| Memoria del proyecto (exportada de Google Docs) | [`docs/Proyecto-memoria.pdf`](docs/Proyecto-memoria.pdf) | PDF del 24/11 (V20, 92 páginas); volver a exportar con los apartados nuevos (16: sesión 4 Linux) |
+| Documento de diseño de la infraestructura | [`docs/fase1/01-documento-diseno.md`](docs/fase1/01-documento-diseno.md) | Borrador v0.14 (faltan diagramas de red y cerrar propuestas) |
 | Guía de instalación reproducible del hipervisor | [`docs/fase1/02-guia-instalacion-hipervisor.md`](docs/fase1/02-guia-instalacion-hipervisor.md) | Borrador v0.4 |
-| Memoria técnica de la infraestructura desplegada | [`docs/fase1/03-memoria-tecnica.md`](docs/fase1/03-memoria-tecnica.md) | En curso v0.7 (DC01, AD, DNS, GPO, scripts, LNX01, clones, SQL Server) |
+| Memoria técnica de la infraestructura desplegada | [`docs/fase1/03-memoria-tecnica.md`](docs/fase1/03-memoria-tecnica.md) | En curso v0.15 (DC01/DC02, AD, DNS, GPO, FS01/FS02 y DFS, permisos, carpetas personales, cuotas, perfiles y GPO de usuario; Linux: clúster, AG con pruebas de conmutación, web en Pacemaker, `ufw`) |
 | Manual de operación y plan de recuperación | `docs/fase1/04-manual-operacion.md` | Pendiente |
-| Inventario de servicios, usuarios y grupos | [`docs/fase1/05-inventario-servicios-usuarios-grupos.md`](docs/fase1/05-inventario-servicios-usuarios-grupos.md) | Parcial v0.8 (falta matriz de permisos, grupos `DL_`, diagrama de grupos y evidencias) |
+| Inventario de servicios, usuarios y grupos | [`docs/fase1/05-inventario-servicios-usuarios-grupos.md`](docs/fase1/05-inventario-servicios-usuarios-grupos.md) | Parcial v0.16 (grupos `DL_` y scripts; falta diagrama de grupos y evidencias) |
 | Anexo de necesidades de IA | `docs/fase1/06-anexo-ia.md` | Pendiente |
 | Guía del dominio: DNS y resto de DC01, DC02 y unión de todas las máquinas | [`docs/fase1/07-guia-dominio-dc02-union.md`](docs/fase1/07-guia-dominio-dc02-union.md) | v1.5 (19/11) · DC02 en VirtualBox y paso de los dos DC a Proxmox |
-| **Lista de tareas** (todos los requisitos y su estado) | [`docs/gestion/lista-tareas-fase1.md`](docs/gestion/lista-tareas-fase1.md) | v1.3 (19/11) |
-| Calendario | [`docs/gestion/calendario-fase1.md`](docs/gestion/calendario-fase1.md) | Replanificado 17/11 (cierre de GitHub, D-04) · revisado 19/11 |
-| Bitácora y desfases | [`docs/gestion/bitacora.md`](docs/gestion/bitacora.md) | Al día (19/11) · desfases D-01 a D-05 |
+| **Matriz de permisos** P-01 a P-44 (parte del inventario) | [`docs/fase1/08-matriz-permisos.md`](docs/fase1/08-matriz-permisos.md) | v1.0 (26/11) · aplicada en FS01 y FS02 |
+| **Lista de tareas** (todos los requisitos y su estado) | [`docs/gestion/lista-tareas-fase1.md`](docs/gestion/lista-tareas-fase1.md) | v1.10 (27/11) |
+| Calendario | [`docs/gestion/calendario-fase1.md`](docs/gestion/calendario-fase1.md) | Replanificado 17/11 (cierre de GitHub, D-04) · revisado 27/11 |
+| Bitácora y desfases | [`docs/gestion/bitacora.md`](docs/gestion/bitacora.md) | Al día (26/11 Linux y Windows; 27/11 OVA de los Windows) · desfases D-01 a D-05 |
 
 ## Scripts
 
@@ -63,11 +65,14 @@ Diseño, implantación, IA aplicada y auditoría de la infraestructura virtualiz
 | [`scripts/windows/03-cuentas-especiales.ps1`](scripts/windows/03-cuentas-especiales.ps1) | recepcion.bcn, auditor.ext y cuentas de servicio svc_* |
 | [`scripts/windows/04-configurar-dns.ps1`](scripts/windows/04-configurar-dns.ps1) | DNS de DC01: actualizaciones seguras, sin transferencias, zona inversa, reenviadores, registros fijos y limpieza (alternativa reproducible a la configuración gráfica del 18/11) |
 | [`scripts/windows/05-gpo.ps1`](scripts/windows/05-gpo.ps1) | GPO de seguridad: cuentas de servicio sin inicio de sesión, cuentas `adm.` fuera de los equipos de usuarios, firewall y auditoría avanzada |
+| [`scripts/windows/06-carpetas-permisos.ps1`](scripts/windows/06-carpetas-permisos.ps1) | Carpetas del Anexo I, grupos `DL_` (AGDLP), permisos NTFS de la matriz y auditoría. Modo `-Simular` (v1.3, ejecutado en FS01 el 26/11) |
+| [`scripts/windows/07-personales-cuotas-perfiles.ps1`](scripts/windows/07-personales-cuotas-perfiles.ps1) | Carpetas personales, unidad H:, perfiles móviles y cuotas FSRM (v1.0, ejecutado en FS01 y, con `-SoloCuotas`, en FS02 el 26/11) |
 | [`scripts/windows/84-deshacer-dns.ps1`](scripts/windows/84-deshacer-dns.ps1) | Deshace la configuración del script 04 (con copia de las zonas y confirmación); no toca lo que necesita el dominio. Ejecutado en DC01 tras el script 04; el DNS se rehízo por la interfaz gráfica el 18/11 |
 | [`scripts/windows/90-comprobar-ou-grupos.ps1`](scripts/windows/90-comprobar-ou-grupos.ps1) | Solo lectura: árbol de OU, grupos con número de miembros y Admins. del dominio (para capturas) |
 | [`scripts/windows/91-comprobar-usuarios.ps1`](scripts/windows/91-comprobar-usuarios.ps1) | Solo lectura: empleados por departamento, becarios y cuentas especiales (para capturas). `-Lista` abre la lista completa |
 | [`scripts/windows/92-comprobar-cuentas-especiales.ps1`](scripts/windows/92-comprobar-cuentas-especiales.ps1) | Solo lectura: requisitos de las cuentas especiales (Anexo I, ap. 5) con OK / FALLO (para capturas) |
 | [`scripts/windows/94-comprobar-gpo.ps1`](scripts/windows/94-comprobar-gpo.ps1) | Solo lectura: las 4 GPO del script 05 con OK / FALLO e informe HTML de cada una (para capturas) |
+| [`scripts/windows/96-comprobar-carpetas-permisos.ps1`](scripts/windows/96-comprobar-carpetas-permisos.ps1) | Solo lectura: grupos `DL_` y ACL comparados con la matriz, OK / ERROR por carpeta (v1.2; 0 errores en FS01 y FS02) |
 | [`scripts/windows/93-comprobar-dns.ps1`](scripts/windows/93-comprobar-dns.ps1) | Solo lectura: configuración y resolución DNS con OK / FALLO (también contra DC02 con `-Servidor`) |
 
 > Script 04 v1.0 ejecutado en DC01 el 17/11. Scripts 04 y 93 v1.1 (18/11/2026): reenviadores en lugar del DNS del aula (la red del aula intercepta el DNS). Scripts 04 y 93 v1.2 (19/11/2026): reenviadores **8.8.8.8 y 1.1.1.1**, los configurados de verdad en DC01 (la v1.1 decía 1.1.1.1 y 9.9.9.9 por error de anotación).
