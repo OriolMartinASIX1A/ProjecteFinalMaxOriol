@@ -406,7 +406,7 @@ Add-Computer -DomainName cibernova.local -OUPath "OU=Barcelona,OU=Equipos,OU=Cib
 ```
 (Cambiad `Barcelona` por la OU que se confirme; para el equipo de recepción, `OU=Recepcion`.)
 - Windows 11 debe ser **Pro, Education o Enterprise**: la edición Home no puede unirse a un dominio. Comprobación: `(Get-CimInstance Win32_OperatingSystem).Caption`.
-- **Según el diseño (apartado 5.2), los clientes reciben su IP por reserva de Kea DHCP.** Mientras Kea no esté montado (y mientras el profesorado no confirme que se permite) se usa la IP fija de arriba; cuando funcione Kea, se pasa la tarjeta a automática (`Set-NetIPInterface -InterfaceAlias $if -Dhcp Enabled; Remove-NetRoute -InterfaceAlias $if -Confirm:$false; Set-DnsClientServerAddress -InterfaceAlias $if -ResetServerAddresses`) y la reserva debe dar la misma IP y los DNS .23/.24.
+- **Los clientes se quedan con la IP fija de arriba** (cambio del 27/11): el DHCP (Kea) solo funciona en la red aislada `vmbr1`, para no repartir IP a los equipos del centro (diseño, apartado 3.4).
 
 Comprobación 📸 (`..._cli02_union-dominio.png`, `..._cli02_login-usuario.png`):
 ```powershell

@@ -96,18 +96,80 @@ Registro continuo de decisiones, problemas, soluciones y desfases. Una entrada p
 
 ## Entradas
 
+### 2026-11-27 · Fuera de horario, con permiso (SFTP, Bareos, portal web, Director en espera y DHCP) · Max (DHCP con Oriol)
+
+**Hecho:**
+- **Arranque y ufw en LNX02:** clúster formado solo (principal, VIP y Apache en lnx01). `ufw` en LNX02 con las mismas 15 reglas que LNX01, activado con LNX02 como secundaria. AG `CONNECTED`/`HEALTHY` por la VIP y web por la VIP desde PROC: **LNX-06 y DB-06 completos** en los tres nodos del clúster 📸.
+- **SFTP (SFTP-03):** mismas claves de host SSH en LNX01 y LNX02 (las de LNX01; las antiguas de LNX02 en `/root/ssh-hostkeys-antiguas`), misma huella ED25519. `/srv/sftp` en los dos; clave `/root/.ssh/sftp_sync` por nodo, autorizada en el otro con `command="/usr/bin/rrsync /srv/sftp",restrict,from="IP"`; `sftp-sync.sh` v1.0 + cron cada minuto: solo copia el nodo con la VIP. Probado en los dos sentidos (LNX01 → LNX02 en 19 s; tras mover la principal, LNX02 → LNX01) 📸.
+- **Arranque en frío de la tarde:** Pacemaker intentó promover lnx02 y el agente lo rechazó (**error 41142**, una base de datos sin sincronizar): la protección del RPO 0 funciona. `pcs resource cleanup ag_cluster` 📸.
+- **Bareos 25.1.3 (BKP-01 a BKP-04):** Director + catálogo PostgreSQL 16 + almacenamiento en BKP01, almacenamiento en BKP02, disco de datos de 200 GB en cada una (`/srv/bareos`), TLS 1.3 entre componentes, Media Type distinto por almacenamiento (`File`, `FileBKP02`). Agentes en LNX01 y LNX02 (`configure add client`), FileSet `CiberNovaLinux`, `ClientRunBeforeJob` con `bareos-sql-backup.sh` (copia `COPY_ONLY` en la secundaria sincronizada). Trabajos 1 y 2 `Backup OK`; trabajo 3 `Restore OK` con SHA-256 idénticos; restauración de la BD con las mismas 36 filas e id máximo 4002 📸.
+- **Copia a BKP02 (regla 3-2-1):** pool `Copia-BKP02` (3 × 50 GB, 365 días), `Next Pool` en Full/Differential/Incremental, trabajo `copia-a-bkp02` (Copy, `PoolUncopiedJobs`): trabajos 6 y 8 (tipo C) en el volumen `CopiaBKP02-0002` 📸.
+- **PR-06:** con el almacenamiento de BKP01 parado, restauración del trabajo 6 desde BKP02: 2.225/2.225 ficheros, SHA-256 idénticos y `cibernova_pruebas.bak` recuperado 📸.
+- **Calendario de las copias:** `CiberNova-Sesiones` (Full martes 16:45, Incremental jueves 18:30), `CiberNova-Catalogo` (prioridad 11) y `CiberNova-Copia` (prioridad 15); `WeeklyCycle` y `WeeklyCycleAfterBackup` con `Enabled = no`. `status scheduler days=8` solo con las copias en horario de sesión 📸.
+- **Copia de BKP01:** FileSet `CiberNovaBKP01` (`/etc`, `/root`, `/home`, `/usr/local/sbin`) y trabajo `backup-bkp01`; `backup-bareos-fd` desactivado. Trabajo 10: 2.219 ficheros, incluida toda la configuración del Director 📸.
+- **Portal CiberNova (WEB-01, DB-05):** intranet interna de incidencias de Sistemas. BD `cibernova_portal` en el AG (`cibernova_portal.sql` v1.0, *seeding* a LNX01), `web_cibernova` solo con `SELECT`/`INSERT`/`UPDATE` en `dbo.incidencias`, `index.php` v1.1 en `/var/www/html/portal` (`640 root:www-data`). Probado con tres incidencias 📸.
+- **Copias del portal:** `db_backupoperator` para `backup_cibernova` en `cibernova_portal`, `bareos-sql-backup.sh` v1.2 (las dos BD), trabajo 11 con `cibernova_portal.bak` y el código del portal 📸.
+- **Conmutación con el portal** a LNX01: incidencias anteriores intactas (guardadas en lnx02), la nueva en lnx01 (id 1002 por la caché de `IDENTITY`). `pcs resource clear`: sin reglas temporales 📸.
+- **WEB-03:** `web-sync.sh` v1.0 + cron cada minuto, mismo diseño que el SFTP, clave `/root/.ssh/web_sync` restringida a `/var/www/html`. Fichero nuevo y borrado propagados a LNX02 📸.
+- **DHCP (Oriol + Max):** red aislada `vmbr1` (10.10.10.0/24), segunda tarjeta `ens19` en LNX01 (.28) y LNX02 (.29) con netplan aparte (Oriol). **Kea 2.4.1 en alta disponibilidad hot-standby** (Max): solo en `ens19`, *pool* .100–.200, LNX01 primario y LNX02 en espera, comunicación por el escuchador HTTP integrado (8000/tcp, sin `kea-ctrl-agent`), `ufw` 67/udp y 8000/tcp solo en `ens19`. `ha-heartbeat`: los dos en `hot-standby` 📸.
+- **BKP-05 · Director en espera en frío en BKP02:** `bareos-director`, `bareos-database-postgresql` (sin crear catálogo) y PostgreSQL instalados, Director `disabled`/`inactive`. `bareos-standby-sync.sh` v1.0 en BKP01 (cron cada 30 min): envía `/etc/bareos` y un `pg_dump` del catálogo a `/srv/bareos/standby` de BKP02 con clave restringida (`rrsync`). Primera sincronización 20:30 📸.
+- **Dimensionamiento real** comprobado con `qm config`: LNX01 y LNX02 con un solo disco de 60 GB; BKP01 y BKP02 con 60 + 200 GB. Total asignado ≈ 1.290 GB de ~1,5 TB.
+- Capturas con el prefijo `2026-11-27_sesion04b_` (marcadas en el apartado 17 de la memoria y en el apartado del DHCP).
+
+**Problemas y soluciones:**
+- Problema: la restauración desde BKP02 se quedó en `waiting for Client to connect to Storage daemon`. → Causa: el `ufw` de BKP02 solo permitía el 9103 desde BKP01 (pensado para el trabajo de copia); en una restauración el agente del cliente conecta directamente al almacenamiento. Solución: 9103 de BKP02 abierto a .28 y .29. **Hallazgo de la propia prueba de caída.**
+- Problema: `fn_hadr_backup_is_preferred_replica` devolvía 0 en las dos réplicas y no se puede cambiar la prioridad de la réplica de solo configuración (error 47112). Solución: `bareos-sql-backup.sh` v1.1, que decide con el estado de sincronización.
+- Problema: BKP02 tenía las claves de host SSH de LNX01 (la personalización del 19/11 no las regeneró). Solución: `dpkg-reconfigure openssh-server` y `ssh-keygen -R 192.168.202.31` en BKP01 y en el PC de Max.
+- Problema: nano se colgó al pegar un calendario de Bareos (quedó un `.conf.save`). Solución: ficheros creados con `printf … | sudo tee` y textos largos con `sudo tee <<'FIN'`.
+- **Incidencia 19:00:23–19:00:39:** al configurar la red del DHCP en LNX02, `netplan generate` + `networkctl reload` reconfiguraron también `ens18` y borraron la VIP .27. Pacemaker la repuso y reinició Apache (≈ 3 s sin web). Solución: `pcs resource cleanup virtualip`. **Procedimiento acordado:** `pcs node standby` antes de cambiar la red de un nodo del clúster.
+- Problema: `kea-dhcp4 -t` falló con `output-options` (en Kea 2.4.1 es `output_options`). Solución: `kea-dhcp4.conf` v1.1.
+- Problema: Kea seguía con la configuración de ejemplo (192.0.2.0/24): el paquete lo arranca al instalarlo y `enable --now` no reinicia. Solución: `systemctl restart`. No repartió ninguna IP (no tenía interfaces).
+- Observación: `ERROR DHCP4_BUFFER_RECEIVE_FAIL` (paquete truncado) una vez al arrancar Kea en lnx01. Puntual; vigilar.
+- Despistes sin consecuencias: script del Director en espera pegado primero en BKP02 (borrado e instalado en BKP01); `ls` sin `sudo` en la carpeta del portal; `scp` lanzado dentro de LNX01 en vez de en el PC.
+
+**Decisiones (ver diseño y `decisiones-fase1.md`):**
+- **SFTP:** usuarios del dominio (se espera al dominio) y datos con rsync cada minuto desde el nodo con la VIP (RPO 1 min). Alternativas: DRBD, lsyncd.
+- **Bareos** con catálogo PostgreSQL local en BKP01 y disco de 200 GB por almacenamiento.
+- **Calendario de copias en horario de sesión** (Max: martes 16:45, jueves 18:30) [PENDIENTE DE CONFIRMAR con Oriol: RPO de 2 a 5 días]. Los martes no se apaga antes de las 16:55.
+- **Web interna y sencilla: Portal CiberNova** (Max). Alternativas: Moodle, WordPress/Joomla (sin SQL Server), web estática. Sin inicio de sesión propio: autenticación contra el AD desde Apache cuando estén los DC.
+- **WEB-03 con rsync desde el nodo activo** (Max). Alternativas: `git pull`, copia a mano.
+- **DHCP en red aislada `vmbr1`** (Oriol), clientes CLI01/CLI02 en la red del aula con IP fija; la VM de prueba del DHCP es una excepción temporal a la regla de dominio único. **Subred 10.10.10.0/24** aceptada por Max. Kea fuera de Pacemaker (tiene su propia alta disponibilidad).
+- **BKP-05: Director en espera en frío** (Max, opción A). Alternativas: en caliente con PostgreSQL replicado; solo recuperación desde los volúmenes (queda como último recurso).
+- **HV-09 (copia de las VMs):** no es obligatoria en la Fase 1 (la norma 2 la pide sobre todo antes del pentest) y no cabe en `local`. Pendiente de preguntar por un disco externo.
+
+**Pendiente:**
+- Prueba de caída del DHCP con una VM de prueba en `vmbr1` (VMID 199 propuesto [PENDIENTE DE CONFIRMAR]); el lunes no es sesión (pedir permiso).
+- Prueba de activación del Director en BKP02 y procedimiento en el manual de operación.
+- sshd con *chroot* para el SFTP, `realm join`, `svc_web`, autenticación del portal contra el AD y orden de arranque: cuando las Windows estén en Proxmox.
+
+---
+
 ### 2026-11-27 · Fuera de horario (OVA de los Windows) · Oriol
 
 **Hecho:**
-- **Exportadas a OVA** las máquinas Windows de VirtualBox (DC01, DC02, FS01 y FS02 [PENDIENTE DE CONFIRMAR que son las cuatro]) con todo lo hecho hasta el 26/11 (dominio, DNS, GPO, DFS-N + DFS-R, permisos, carpetas personales, cuotas, perfiles y GPO de unidades y redirección). **A la espera de subirlas a Proxmox** (VMID 123, 124, 125 y 126).
+- **Exportadas a OVA** las máquinas Windows de VirtualBox (DC01, DC02, FS01 y FS02) con todo lo hecho hasta el 26/11 (dominio, DNS, GPO, DFS-N + DFS-R, permisos, carpetas personales, cuotas, perfiles y GPO de unidades y redirección). Subidas a `local` de Proxmox por la tarde.
 
 **Decisiones:**
 - **Las copias de VirtualBox ya no se tocan.** Lo que se cambie en ellas después de exportar no llegaría a Proxmox y, en los DC, volver a encender una copia antigua después de importar provocaría un *USN rollback* (rotura de la replicación de AD). A partir de ahora, el trabajo de Windows (clientes, perfil obligatorio, GPO de `svc_backup`) se hace en Proxmox.
 - **Importación de una en una** (≈ 24 GB libres en `local`), **DC01 primero**, borrando cada OVA después de importarla. Si el asistente falla, método manual (`tar` + `qm create` + `qm importdisk`), como con LNX01.
 
-**Desfase:** D-05 sigue abierto hasta que estén importadas (objetivo: como muy tarde el 1/12, porque la unión al dominio de los Linux, `svc_web` y los agentes de Bareos para Windows dependen de los DC).
+**DHCP (tarde, Oriol, en Proxmox):**
+- **Decisión: el DHCP (Kea) funciona solo en la red aislada `vmbr1`.** Si repartiera direcciones en la red del aula, mientras el servidor estuviera encendido cualquier equipo del centro que se conectara podría recibir una IP nuestra en lugar de la del DHCP del centro y quedarse sin red. `vmbr1` es un puente de Proxmox que venía creado por defecto, sin tarjeta física. Alternativa descartada: Kea en la red del aula con pool solo para clientes conocidos (idea inicial del diseño; un error de configuración seguiría afectando al centro). Los clientes CLI01 y CLI02 se quedan con IP fija en la red del aula.
+- **Lo hace Oriol** (por carga de trabajo de Max; diseño de Max: Kea HA en LNX01 y LNX02).
+- Comprobado en la shell de Proxmox: `ip -br link show vmbr1` → `UNKNOWN ... UP` y ninguna VM lo usa (`grep -l vmbr1 /etc/pve/qemu-server/*.conf` sin resultados) 📸. **Incidencia:** los comandos se lanzaron primero dentro de LNX01 (`vmbr1` no existe dentro de una VM); se repitieron en `root@PROC`.
+- **Segunda tarjeta en `vmbr1`** (`qm set 128/129 --net1 virtio,bridge=vmbr1`) 📸 e **IP fija en `ens19`** en un fichero aparte, `/etc/netplan/60-vmbr1.yaml` (LNX01 10.10.10.28/24, LNX02 10.10.10.29/24, sin puerta de enlace ni DNS: red cerrada); `ping` entre los dos correcto 📸. Se aplica con `netplan generate` + `networkctl reload` + `networkctl reconfigure ens19` y no con `netplan apply`, que vuelve a aplicar también `ens18` y podría quitar un momento la VIP .27 de Pacemaker. **Incidencia:** sin `networkctl reload`, `ens19` seguía en `DOWN`. **Incidencia:** `ssh` desde el PC del aula fallaba por los permisos de `C:\Users\AlumnoT\.ssh\config` → `ssh -F NUL`.
 
-**Siguiente (Proxmox):** importar DC01 → DC02 → FS01 → FS02, volver a poner IP y DNS (cambia la tarjeta de red), comprobar replicación de AD (`repadmin /replsummary`), DFS (`Get-DfsnFolderTarget`) y DFS-R 📸; después, clientes CLI01 y CLI02, perfil obligatorio de `recepcion.bcn` y GPO de `svc_backup`.
+**Importación de los Windows en Proxmox (19:10–19:53, Oriol):**
+- **Método manual**, como con LNX01: `tar -xvf` del `.vmdk` + `qm create` + `qm importdisk ... local-lvm` + `qm set --sataN ... --boot order=sata0`. Las cuatro con `ostype win11`, 2 vCPU, 4096 MB, BIOS (el OVF no indica UEFI), **disco SATA y tarjeta E1000 en `vmbr0`** (Windows trae sus controladores; VirtIO después) y agente QEMU activado.
+- **Resultado** (`qm config`, `lvs`) 📸: 123 DC01 (`sata0` 50 G), 124 DC02 (`sata0` 50 G), 125 FS01 y 126 FS02 (`sata0` 50 G de sistema + `sata1` 150 G de datos). Sin discos `unused`; las cuatro **paradas**.
+- **Espacio en `local`:** solo 18 GB libres al empezar → se borró cada OVA después de importarla, además de `LNX01.ova` con su carpeta y un `.mf` de W2022 que no era nuestro. Al final, carpeta `import` vacía y **77 GB libres**.
+- **Incidencia:** la primera extracción de DC01 se cortó (5,7 G de 15,3 G) → se repitió; el disco quedó como `unused0` y se conectó con `qm set 123 --sata0 ...`.
+- **Incidencia:** en FS01 el disco de datos es `FS01-disk003.vmdk` (el 002 es el CD), no `disk002` → se comprobó la capacidad de cada disco en el OVF (`tar -tvf` y el `.ovf`) antes de importarlo.
+- **Incidencia:** la importación de FS02 se cortó **dos veces al salir de la shell web**: `qm importdisk` se para al cerrar la sesión aunque se lance con `nohup`. Se borró el disco a medias (`pvesm free local-lvm:vm-126-disk-N`) y se repitió sin salir de la shell. **Lección:** para tareas largas, `systemd-run --unit=importar-fs02 --collect qm importdisk ...`, que no depende de la sesión.
+
+**Desfase:** D-05 sigue abierto hasta que los cuatro arranquen en Proxmox con su IP y se compruebe la replicación (objetivo: como muy tarde el 1/12, porque la unión al dominio de los Linux, `svc_web` y los agentes de Bareos para Windows dependen de los DC). Las máquinas ya están creadas.
+
+**Siguiente (Proxmox):** arrancar DC01 (`qm start 123`) → DC02 → FS01 → FS02 de uno en uno, volver a poner IP y DNS (la tarjeta E1000 es nueva para Windows), comprobar replicación de AD (`repadmin /replsummary`), DFS (`Get-DfsnFolderTarget`) y DFS-R 📸; después, clientes CLI01 y CLI02, perfil obligatorio de `recepcion.bcn` y GPO de `svc_backup`. **DHCP:** Kea HA en LNX01/LNX02 sobre `ens19`, `ufw` (67/udp y puerto HA) y VM de prueba en `vmbr1` (PR-05).
 
 ### 2026-11-26 · Sesión 4 y fuera de horario (DFS, permisos, carpetas personales y GPO) · Oriol
 

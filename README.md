@@ -12,7 +12,7 @@ Diseño, implantación, IA aplicada y auditoría de la infraestructura virtualiz
 | 2 – IA aplicada | 2.º | Pendiente |
 | 3 – Seguridad y auditoría | 3.º | Pendiente |
 
-**Versión:** V21 (27/11/2026) · historial en [`VERSION.md`](VERSION.md)
+**Versión:** V22 definitiva (27/11/2026; fusión del 28/11 de la parte Windows de Oriol y la parte Linux de Max) · historial en [`VERSION.md`](VERSION.md)
 
 ## Estructura del repositorio
 
@@ -36,25 +36,25 @@ Diseño, implantación, IA aplicada y auditoría de la infraestructura virtualiz
 │   └── linux/            Bash / Ansible
 └── configs/
     ├── windows/          Exportaciones de configuración
-    └── linux/            Ficheros de configuración versionados (web, Pacemaker, ufw)
+    └── linux/            Ficheros de configuración versionados (web y portal, Pacemaker, ufw, Bareos, Kea)
 ```
 
 ## Entregables de la Fase 1
 
 | Entregable | Fichero | Estado |
 |---|---|---|
-| Memoria del proyecto (exportada de Google Docs) | [`docs/Proyecto-memoria.pdf`](docs/Proyecto-memoria.pdf) | PDF del 24/11 (V20, 92 páginas); volver a exportar con los apartados nuevos (16: sesión 4 Linux) |
-| Documento de diseño de la infraestructura | [`docs/fase1/01-documento-diseno.md`](docs/fase1/01-documento-diseno.md) | Borrador v0.14 (faltan diagramas de red y cerrar propuestas) |
+| Memoria del proyecto (exportada de Google Docs) | [`docs/Proyecto-memoria.pdf`](docs/Proyecto-memoria.pdf) | PDF del 28/11 (V22, 184 páginas): incluye los apartados 16 (sesión 4 Linux) y 17 (27/11) y la continuación del DHCP, con las capturas del 27/11 |
+| Documento de diseño de la infraestructura | [`docs/fase1/01-documento-diseno.md`](docs/fase1/01-documento-diseno.md) | Borrador v0.16 (faltan diagramas de red y cerrar propuestas) |
 | Guía de instalación reproducible del hipervisor | [`docs/fase1/02-guia-instalacion-hipervisor.md`](docs/fase1/02-guia-instalacion-hipervisor.md) | Borrador v0.4 |
-| Memoria técnica de la infraestructura desplegada | [`docs/fase1/03-memoria-tecnica.md`](docs/fase1/03-memoria-tecnica.md) | En curso v0.15 (DC01/DC02, AD, DNS, GPO, FS01/FS02 y DFS, permisos, carpetas personales, cuotas, perfiles y GPO de usuario; Linux: clúster, AG con pruebas de conmutación, web en Pacemaker, `ufw`) |
+| Memoria técnica de la infraestructura desplegada | [`docs/fase1/03-memoria-tecnica.md`](docs/fase1/03-memoria-tecnica.md) | En curso v0.17 (DC01/DC02, AD, DNS, GPO, FS01/FS02 y DFS, permisos, carpetas personales, cuotas, perfiles y GPO de usuario; Linux: clúster, AG con pruebas de conmutación, web en Pacemaker, `ufw`; 27/11: SFTP, Bareos, portal, WEB-03, Kea HA y Director en espera) |
 | Manual de operación y plan de recuperación | `docs/fase1/04-manual-operacion.md` | Pendiente |
-| Inventario de servicios, usuarios y grupos | [`docs/fase1/05-inventario-servicios-usuarios-grupos.md`](docs/fase1/05-inventario-servicios-usuarios-grupos.md) | Parcial v0.16 (grupos `DL_` y scripts; falta diagrama de grupos y evidencias) |
+| Inventario de servicios, usuarios y grupos | [`docs/fase1/05-inventario-servicios-usuarios-grupos.md`](docs/fase1/05-inventario-servicios-usuarios-grupos.md) | Parcial v0.17 (grupos `DL_` y scripts; falta diagrama de grupos y evidencias) |
 | Anexo de necesidades de IA | `docs/fase1/06-anexo-ia.md` | Pendiente |
 | Guía del dominio: DNS y resto de DC01, DC02 y unión de todas las máquinas | [`docs/fase1/07-guia-dominio-dc02-union.md`](docs/fase1/07-guia-dominio-dc02-union.md) | v1.5 (19/11) · DC02 en VirtualBox y paso de los dos DC a Proxmox |
 | **Matriz de permisos** P-01 a P-44 (parte del inventario) | [`docs/fase1/08-matriz-permisos.md`](docs/fase1/08-matriz-permisos.md) | v1.0 (26/11) · aplicada en FS01 y FS02 |
-| **Lista de tareas** (todos los requisitos y su estado) | [`docs/gestion/lista-tareas-fase1.md`](docs/gestion/lista-tareas-fase1.md) | v1.10 (27/11) |
+| **Lista de tareas** (todos los requisitos y su estado) | [`docs/gestion/lista-tareas-fase1.md`](docs/gestion/lista-tareas-fase1.md) | v1.12 (27/11) |
 | Calendario | [`docs/gestion/calendario-fase1.md`](docs/gestion/calendario-fase1.md) | Replanificado 17/11 (cierre de GitHub, D-04) · revisado 27/11 |
-| Bitácora y desfases | [`docs/gestion/bitacora.md`](docs/gestion/bitacora.md) | Al día (26/11 Linux y Windows; 27/11 OVA de los Windows) · desfases D-01 a D-05 |
+| Bitácora y desfases | [`docs/gestion/bitacora.md`](docs/gestion/bitacora.md) | Al día (26/11 Linux y Windows; 27/11 OVA e importación de los Windows, red aislada del DHCP y trabajo Linux de la tarde) · desfases D-01 a D-05 |
 
 ## Scripts
 

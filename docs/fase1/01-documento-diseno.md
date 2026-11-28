@@ -2,7 +2,7 @@
 
 **Proyecto:** Plan de modernización tecnológica de CiberNova Solutions
 **Equipo:** Grupo 3 – Max (Linux) · Oriol (Windows)
-**Versión:** 0.14 (borrador) · 27/11/2026 · Ficheros y permisos (Oriol, 26/11): FS01 con prioridad `GlobalLow`, permisos AGDLP aplicados, carpetas personales, cuotas, perfiles móviles en DFS, GPO de unidades y de redirección por grupo (3.8, 8.2) · v0.13 (borrador) · 27/11/2026 · Sesión 4 Linux: conmutación del AG probada y tiempos medidos (3.5, 7, 9.3), Apache en Pacemaker con la VIP (opción A, 3.6), usuario `web_cibernova`, firewall `ufw` en los Linux (3.11) y riesgos nuevos · v0.12 (borrador) · 24/11/2026 · FS02 como segundo servidor del espacio de nombres y DFS-R (un grupo por carpeta, FS01 principal) · v0.11 (24/11): AG `sqlag_cibernova`: autenticación por certificado, *endpoint* `WITNESS` en BKP01, `pacemakerLogin` de mínimo privilegio, VIP .27 con colocación y orden · v0.10 (23/11) · FS01: disco de datos de 150 GB justificado, recursos reales, cuatro recursos compartidos y permisos de recurso frente a NTFS · v0.9 (23/11): Clúster Pacemaker de 3 nodos sin qdevice; fencing con usuario de Proxmox de mínimo privilegio · v0.8 (19/11): BKP02 creada desde la instantánea `base-limpia` (sin SQL Server) · v0.7 (19/11): Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
+**Versión:** 0.16 (borrador) · 27/11/2026, noche · **V22 definitiva (fusión del 28/11).** Max: DHCP en red aislada `vmbr1` con Kea HA (3.4, 5), Portal CiberNova como aplicación web y WEB-03 (3.6), SFTP con mismas claves y rsync (3.7), Bareos: calendario, copia a BKP02, PR-06 y Director en espera (3.10, 7, 9), dimensionamiento real (6), riesgos nuevos · v0.15 (borrador) · 27/11/2026 · DHCP en la red aislada `vmbr1` (Oriol; 3.4, 5, 7, riesgos) · v0.14 (borrador) · 27/11/2026 · Ficheros y permisos (Oriol, 26/11): FS01 con prioridad `GlobalLow`, permisos AGDLP aplicados, carpetas personales, cuotas, perfiles móviles en DFS, GPO de unidades y de redirección por grupo (3.8, 8.2) · v0.13 (borrador) · 27/11/2026 · Sesión 4 Linux: conmutación del AG probada y tiempos medidos (3.5, 7, 9.3), Apache en Pacemaker con la VIP (opción A, 3.6), usuario `web_cibernova`, firewall `ufw` en los Linux (3.11) y riesgos nuevos · v0.12 (borrador) · 24/11/2026 · FS02 como segundo servidor del espacio de nombres y DFS-R (un grupo por carpeta, FS01 principal) · v0.11 (24/11): AG `sqlag_cibernova`: autenticación por certificado, *endpoint* `WITNESS` en BKP01, `pacemakerLogin` de mínimo privilegio, VIP .27 con colocación y orden · v0.10 (23/11) · FS01: disco de datos de 150 GB justificado, recursos reales, cuatro recursos compartidos y permisos de recurso frente a NTFS · v0.9 (23/11): Clúster Pacemaker de 3 nodos sin qdevice; fencing con usuario de Proxmox de mínimo privilegio · v0.8 (19/11): BKP02 creada desde la instantánea `base-limpia` (sin SQL Server) · v0.7 (19/11): Los DC no se reenvían entre sí (DC02 promovido) · v0.6 (19/11): Reenviadores corregidos a 8.8.8.8 y 1.1.1.1 · v0.5 (18/11): Datos reales del host, LNX01 en Proxmox, un solo dominio, todas las máquinas en el dominio, configuración del DNS (reenviadores por la intercepción DNS del aula) y GPO de seguridad
 
 > Este documento recoge el análisis de necesidades, las decisiones técnicas con sus alternativas y el diseño de la infraestructura de la Fase 1. Es un documento vivo: cada cambio queda registrado en el historial de Git y, si supone un desfase, en la [bitácora](../gestion/bitacora.md).
 
@@ -94,7 +94,20 @@ Instalación: sistema de archivos ext4 sobre el RAID 10 por hardware (`/dev/sda`
 | ISC DHCP (dhcpd) | Fin de mantenimiento desde 2022 |
 | DHCP de Windows Server (failover) | Válido, pero el equipo decidió repartir los servicios de red en Linux para equilibrar la carga entre plataformas |
 
-**Particularidad:** la red del aula ya tiene un DHCP. El pool de Kea solo atiende a **clientes conocidos** (reservas por MAC, `client-class: "KNOWN"`) para no repartir direcciones a equipos ajenos. Se coordinará con el profesorado.
+**Particularidad:** la red del aula ya tiene un DHCP, y uno nuestro repartiría IP a los equipos del centro y los dejaría sin red.
+
+**Decisión (27/11, Oriol; subred aceptada por Max): DHCP en una red aislada.** Se usa `vmbr1`, un puente de Proxmox sin tarjeta física (lo que pasa en esa red no sale del servidor), con la red **10.10.10.0/24**. LNX01 y LNX02 tienen una segunda tarjeta (`ens19`, VirtIO) con 10.10.10.28 y 10.10.10.29, configurada en un fichero de netplan aparte (`60-vmbr1.yaml`), sin puerta de enlace ni DNS.
+
+| Alternativa | Por qué no |
+|---|---|
+| Kea en la red del aula con *pool* solo para clientes conocidos (diseño inicial) | Sigue siendo un DHCP en una red compartida y dependía del permiso del profesorado |
+| Clientes CLI01/CLI02 en `vmbr1` con puerta de enlace NAT (VIP 10.10.10.1 en Pacemaker) o tarjetas en `vmbr1` en los DC/FS | Más trabajo y riesgo (DC con dos tarjetas, NAT) para la Fase 1; queda como base de la segmentación de la Fase 3 |
+
+- **Implementación (27/11, Max):** Kea 2.4.1 de Ubuntu (`kea-dhcp4-server` sin paquetes recomendados), escucha **solo en `ens19`**, *pool* 10.10.10.100–200, concesiones de 1 h, solo la opción `domain-name` (red cerrada). **Alta disponibilidad hot-standby**: LNX01 primario, LNX02 en espera; latido cada 10 s y relevo a los 30 s; `max-unacked-clients: 0` (prueba con un solo cliente). Los dos Kea se comunican con el **escuchador HTTP integrado** (8000/tcp en `ens19`), sin `kea-ctrl-agent` (un servicio menos; en Ubuntu pide una contraseña al instalarlo). Fichero: `configs/linux/kea/kea-dhcp4.conf` v1.1.
+- **Kea fuera de Pacemaker:** tiene su propia alta disponibilidad (cada nodo con su servicio y su copia de las concesiones) y no usa la VIP.
+- **Firewall:** 67/udp y 8000/tcp (solo desde el otro nodo) únicamente en `ens19`. Kea recibe el DHCP con *sockets raw*, que `ufw` no filtra: la protección real es que solo escuche en `ens19`.
+- **Clientes:** CLI01 y CLI02 siguen en la red del aula con IP fija (.32, .33) y en el dominio. El DHCP se demuestra con una **VM de prueba** en `vmbr1` (VMID 199 propuesto [PENDIENTE DE CONFIRMAR]), que no se une al dominio (no llega a los DC): **excepción temporal** a la regla de dominio único; se borra después de la prueba.
+- **Procedimiento:** cualquier cambio de red en LNX01/LNX02 se hace con el nodo en `pcs node standby` (incidencia del 27/11: `networkctl reload` reconfiguró `ens18` y borró la VIP durante ≈ 3 s).
 
 ### 3.5 Base de datos: **SQL Server 2025 Enterprise Developer – Always On AG**
 
@@ -127,12 +140,24 @@ Instalación: sistema de archivos ext4 sobre el RAID 10 por hardware (`/dev/sda`
 | Recurso `systemd:apache2` | Solo comprueba que el servicio está arrancado; `ocf:heartbeat:apache` pide `server-status` y detecta un Apache colgado |
 
 - **Acceso a la base de datos:** login de SQL Server **`web_cibernova`** con `db_datareader` y `db_datawriter` en su base de datos, creado en LNX01 y LNX02 **con el mismo SID** (los *logins* no viajan con el AG; con SID distintos el usuario quedaría huérfano tras conmutar). La web se conecta siempre a la **VIP**. Credenciales en `/etc/cibernova/web.ini` (`640 root:www-data`), fuera de la carpeta web. Mejora prevista: `svc_web` del dominio cuando estén los DC en Proxmox.
-- **Aplicación definitiva** [PENDIENTE DE CONFIRMAR]: de momento, página de prueba `bbdd.php` que escribe y lee en el AG por la VIP.
+- **Aplicación (27/11, Max): web interna y sencilla, el Portal CiberNova.** El enunciado solo pide un servidor web; se elige una intranet porque el dominio es `.local`, no hay IP pública y la red es plana (exponer una web hacia fuera exigiría DMZ, proxy inverso y HTTPS con un certificado de confianza: Fase 3). Es una página para registrar, ver y cerrar incidencias del departamento de Sistemas (`index.php` v1.1 en `/var/www/html/portal`, `640 root:www-data`), con base de datos propia **`cibernova_portal`** en el AG (`cibernova_portal.sql` v1.0). `web_cibernova` solo tiene `SELECT`, `INSERT` y `UPDATE` sobre `dbo.incidencias`. Consultas preparadas, salida escapada, sin recursos externos. Cada incidencia guarda la réplica y el nodo web que la atendió (demostración de la alta disponibilidad).
+
+| Alternativa de aplicación | Por qué no |
+|---|---|
+| Moodle (admite SQL Server) | Pesado; necesita una carpeta `moodledata` compartida entre los dos nodos (otro punto que redundar) |
+| WordPress / Joomla | Solo MySQL/MariaDB (Joomla 4 ya no admite SQL Server): otra base de datos y otro clúster |
+| Web estática | No usaría la base de datos |
+
+- **Sin inicio de sesión propio en la Fase 1:** el acceso lo limita la red. Prevista la **autenticación contra el AD desde Apache (`mod_authnz_ldap`)** cuando los DC estén en Proxmox: la aplicación no guarda contraseñas.
+- **Mismo código en los dos nodos (WEB-03, 27/11, Max):** `web-sync.sh` v1.0 copia `/var/www/html` cada minuto desde el nodo con la VIP al otro, con una clave restringida con `rrsync`. Los cambios se hacen siempre en el nodo activo; `web.ini` se mantiene a mano. Alternativas: `git pull` desde GitHub (credenciales en los servidores; el repositorio se cierra el 4/12) y copia a mano (los nodos pueden quedar distintos).
 
 ### 3.7 FTP/SFTP: **OpenSSH (SFTP con chroot)**
 
 - Se elige SFTP frente a FTP/FTPS porque cifra credenciales y datos con un solo puerto (22) y no necesita software adicional.
 - Usuarios enjaulados (`ChrootDirectory`) y limitados a `internal-sftp`.
+- **Usuarios del dominio** (SFTP-02, 27/11, Max; grupo [PENDIENTE DE CONFIRMAR]): la configuración de `sshd` espera a que los Linux estén en el dominio.
+- **Mismas claves de host SSH en LNX01 y LNX02** (27/11): el SFTP se usa por la VIP y, con claves distintas, el cliente vería una huella diferente tras cada conmutación (aviso de posible ataque). Alternativa descartada: un segundo `sshd` solo para la VIP.
+- **Datos (`/srv/sftp`) copiados cada minuto** desde el nodo con la VIP al otro (`sftp-sync.sh` v1.0, clave restringida con `rrsync`): RPO del SFTP de 1 minuto (riesgo aceptado). Alternativas: DRBD (replicación en bloque, demasiado complejo) y lsyncd (otro servicio).
 
 ### 3.8 Ficheros: **Windows Server + DFS-N (dominio) + DFS-R + FSRM**
 
@@ -166,6 +191,11 @@ Instalación: sistema de archivos ext4 sobre el RAID 10 por hardware (`/dev/sda`
 
 **Motivo:** libre, cliente-servidor, agente Windows con **VSS** (copia ficheros abiertos y **conserva ACL NTFS**), retenciones, catálogo y *copy jobs* entre servidores de almacenamiento. Se instala desde el repositorio oficial (la versión debe coincidir en Director, almacenamiento y agentes).
 
+- **Implementación (27/11):** Bareos 25.1.3. Director, catálogo **PostgreSQL 16 local** y almacenamiento en BKP01; almacenamiento en BKP02. **Disco de datos de 200 GB** en cada una (`/srv/bareos`), separado del sistema. TLS 1.3 entre componentes. Media Type distinto por almacenamiento (`File`, `FileBKP02`). Configuración en `configs/linux/bareos/`.
+- **SQL Server:** antes de cada copia de LNX01/LNX02, `bareos-sql-backup.sh` (v1.2) hace `BACKUP ... WITH COPY_ONLY` en la **secundaria sincronizada** (o en la principal si no hay ninguna) de `cibernova_pruebas` y `cibernova_portal`, con el login `backup_cibernova` (`db_backupoperator`). No se usa `fn_hadr_backup_is_preferred_replica`: la réplica de solo configuración de BKP01 no permite cambiar su prioridad (error 47112).
+- **Copia a BKP02:** pool `Copia-BKP02` y trabajo `copia-a-bkp02` (`PoolUncopiedJobs`).
+- **Director en espera en frío en BKP02 (BKP-05, 27/11, Max):** Director y PostgreSQL instalados y el Director deshabilitado; `bareos-standby-sync.sh` (cron cada 30 min en BKP01) envía `/etc/bareos` y un `pg_dump` del catálogo a `/srv/bareos/standby`. Activación manual (manual de operación). Alternativas: Director en caliente con PostgreSQL replicado (demasiado complejo; dos Directores no pueden trabajar a la vez) y recuperar configuración y catálogo de los volúmenes con `bextract`/`bscan` (último recurso, horas).
+
 ### 3.11 Arquitectura de red: **red plana, sin VLAN (Fase 1)**
 
 Todas las VMs están en la red del aula (192.168.200.0/22), con IPs del rango asignado (192.168.202.23–.33), conectadas al puente `vmbr0` de Proxmox y sin firewall propio entre ellas.
@@ -180,7 +210,7 @@ Todas las VMs están en la red del aula (192.168.200.0/22), con IPs del rango as
 **Motivo:** cumple todos los requisitos de la Fase 1, usa las IPs asignadas por el profesorado y concentra el tiempo en los servicios obligatorios y su redundancia.
 
 **Medidas que compensan la falta de segmentación:**
-- Firewall de cada servidor: Firewall de Windows (por GPO) y **`ufw`** en Ubuntu (26/11: LNX01 y BKP01; LNX02 pendiente), abriendo solo los puertos de cada servicio: 22/tcp desde la red del aula, 80/tcp en los nodos web, y Corosync (5405/udp), `pcsd` (2224/tcp), *endpoint* del AG (5022/tcp) y SQL Server (1433/tcp) solo entre .28, .29 y .30.
+- Firewall de cada servidor: Firewall de Windows (por GPO) y **`ufw`** en Ubuntu (LNX01 y BKP01 el 26/11, LNX02 y BKP02 el 27/11), abriendo solo los puertos de cada servicio: 22/tcp desde la red del aula, 80/tcp en los nodos web, y Corosync (5405/udp), `pcsd` (2224/tcp), *endpoint* del AG (5022/tcp) y SQL Server (1433/tcp) solo entre .28, .29 y .30.
 - La base de datos solo acepta conexiones de los nodos web y de BKP01.
 - Cuentas de servicio con mínimo privilegio y sin inicio de sesión interactivo.
 
@@ -263,10 +293,20 @@ Todos los servidores y clientes usan como DNS **.23 y .24** (los DC). Solo los D
 | 192.168.202.29 | lnx02.cibernova.local | Apache, SFTP, SQL Server, Kea |
 | 192.168.202.30 | bkp01.cibernova.local | Bareos Director + SD, SQL config-only, tercer nodo Pacemaker |
 | 192.168.202.31 | bkp02.cibernova.local | Bareos SD secundario |
-| 192.168.202.32 | cli01.cibernova.local | Cliente Windows 11 (reserva DHCP) |
-| 192.168.202.33 | cli02.cibernova.local | Cliente Windows 11 (reserva DHCP) |
+| 192.168.202.32 | cli01.cibernova.local | Cliente Windows 11 (IP fija) |
+| 192.168.202.33 | cli02.cibernova.local | Cliente Windows 11 (IP fija) |
 
-Los servidores tienen IP estática. Los clientes reciben su IP de Kea mediante reserva por MAC (así se demuestra el servicio DHCP sin interferir con el del aula).
+Los servidores y los clientes tienen IP estática en la red del aula.
+
+**Red aislada del DHCP (`vmbr1`, 10.10.10.0/24, 27/11):**
+
+| IP | Máquina | Función |
+|---|---|---|
+| 10.10.10.28 | LNX01 (`ens19`) | Kea primario |
+| 10.10.10.29 | LNX02 (`ens19`) | Kea en espera |
+| 10.10.10.100 – 10.10.10.200 | VM de prueba | *Pool* de Kea |
+
+Sin puerta de enlace ni DNS: red cerrada que solo sirve para el DHCP.
 
 ---
 
@@ -280,21 +320,22 @@ Recursos del host: 2× Xeon E5-2620 v2 (12 núcleos / 24 hilos), 128 GB RAM, 4×
 |---|---|---|---|---|---|---|
 | DC01 | WS 2025 | 2 | 4 GB | 60 GB | — | 1 |
 | DC02 | WS 2025 | 2 | 4 GB | 60 GB | — | 1 |
-| BKP01 | Ubuntu 24.04 | 2 | 4 GB | 40 GB | 250 GB | 2 |
-| BKP02 | Ubuntu 24.04 | 2 | 4 GB | 40 GB | 250 GB | 2 |
+| BKP01 | Ubuntu 24.04 | 2 | 4 GB | 60 GB | 200 GB | 2 |
+| BKP02 | Ubuntu 24.04 | 2 | 4 GB | 60 GB | 200 GB | 2 |
 | FS01 | WS 2025 | 2 | 4 GB | 50 GB | 150 GB | 3 |
 | FS02 | WS 2025 | 2 | 4 GB | 50 GB | 150 GB | 3 |
-| LNX01 | Ubuntu 24.04 | 4 | 8 GB | 40 GB | 60 GB | 4 |
-| LNX02 | Ubuntu 24.04 | 4 | 8 GB | 40 GB | 60 GB | 4 |
+| LNX01 | Ubuntu 24.04 | 4 | 8 GB | 60 GB | — | 4 |
+| LNX02 | Ubuntu 24.04 | 4 | 8 GB | 60 GB | — | 4 |
 | CLI01 | Windows 11 | 2 | 4 GB | 64 GB | — | 5 |
 | CLI02 | Windows 11 | 2 | 4 GB | 64 GB | — | 5 |
-| **Total** | | **24** | **48 GB** | | **~1,45 TB asignados** | |
+| **Total** | | **24** | **48 GB** | | **≈ 1.290 GB asignados** (27/11) | |
 
 - RAM: quedan ~80 GB libres para el host y para la Fase 2 (IA) y la Fase 3.
 - vCPU: 24 asignadas sobre 24 hilos; la carga real es baja, así que la sobreasignación no es problema.
 - **LNX01 (17/11):** se instaló con un disco de sistema de **60 GB** en vez de los 40 GB propuestos (57 GB útiles en `/`). Propuesta: dar también 60 GB a LNX02 para que la pareja sea simétrica **[PENDIENTE DE CONFIRMAR]**. Los recursos de la tabla siguen siendo propuestas en revisión.
 - **FS01 (23/11):** creada con **2 vCPU, 4 GB de RAM y 50 GB de sistema** (valores reales, la tabla se ajusta a ellos) y disco de datos de **150 GB** dinámico (confirmado por Max y Oriol, justificación en el apartado 3.8). FS02 llevará los mismos recursos.
-- Disco: aprovisionamiento fino (thin). Se vigilará el uso real del *thin pool* para que no supere el 80 %.
+- **Ajuste con los valores reales (27/11, `qm config`):** LNX01 y LNX02 tienen **un solo disco de 60 GB** (el disco de datos de 60 GB no se creó: SQL Server está en el disco de sistema, ampliable en caliente). LNX02, BKP01 y BKP02 son clones de LNX01, así que también tienen 60 GB de sistema. BKP01 y BKP02 tienen **200 GB de datos** (en lugar de 250) para los volúmenes de Bareos (como máximo 150 GB de copias en BKP02). Total asignado: **≈ 1.290 GB** de ~1,5 TB de `local-lvm`.
+- Disco: aprovisionamiento fino (thin). Lo asignado ocupa ya el 85 % del *thin pool*, pero lo ocupado real es mucho menor; se vigilará el uso real para que no supere el 80 % (las cuotas de FSRM y el máximo de volúmenes de Bareos lo limitan).
 
 ---
 
@@ -307,8 +348,8 @@ Recursos del host: 2× Xeon E5-2620 v2 (12 núcleos / 24 hilos), 128 GB RAM, 4×
 | Ficheros | DFS-N de dominio + DFS-R | Las referencias DFS llevan al cliente a FS02 | Apagar FS01 → abrir `\\cibernova.local\empresa` |
 | BBDD | AG síncrono + Pacemaker + config-only en BKP01 | Pacemaker hace *fencing*, promociona la secundaria y mueve la VIP | Apagar LNX01 → la web sigue consultando la BBDD · **✅ 26/11: ≈ 36 s, 0 datos perdidos** |
 | Web / SFTP | Apache (recurso de Pacemaker con la VIP) y SFTP en ambos nodos | Apache arranca en el nodo superviviente junto con la VIP | Apagar LNX01 → recargar la web · **✅ web 26/11: ≈ 29 s** · SFTP ⏳ |
-| DHCP | Kea HA hot-standby | El nodo en espera toma el relevo | Apagar LNX01 → `ipconfig /renew` en un cliente |
-| Backups | Dos servidores Bareos con *copy jobs* | Las copias siguen disponibles en BKP02; se promociona su Director (manual) | Restaurar desde BKP02 con BKP01 apagado |
+| DHCP | Kea HA hot-standby en la red aislada `vmbr1` | El nodo en espera toma el relevo | Apagar Kea en LNX01 → la VM de prueba renueva su IP con LNX02 ⏳ |
+| Backups | Dos servidores Bareos con *copy jobs* y Director en espera en BKP02 | Las copias siguen disponibles en BKP02; se activa su Director (manual) | **✅ 27/11:** restauración desde BKP02 con el almacenamiento de BKP01 parado (2.225/2.225 ficheros, SHA-256 idénticos) · activación del Director ⏳ |
 
 ### Puntos únicos de fallo restantes (aceptados y documentados)
 
@@ -317,7 +358,7 @@ Recursos del host: 2× Xeon E5-2620 v2 (12 núcleos / 24 hilos), 128 GB RAM, 4×
 | Host físico único | RAID 10 por hardware, copias en dos servidores, plan de recuperación | 3 hosts Proxmox en clúster con Ceph |
 | Conexión de red del host (`vmbr0`) | **Confirmado (17/11): solo `nic0` tiene cable**; las otras tres NIC están libres. Se puede pedir al profesorado un segundo cable para un bond active-backup **[PENDIENTE DE CONFIRMAR]** | Bond en dos switches distintos |
 | Switch y puerta de enlace del aula | Fuera de nuestro control | Switches apilados y doble salida |
-| Director de Bareos (solo en BKP01) | Director instalado en BKP02 en *cold standby* + copia del catálogo | Director en HA |
+| Director de Bareos (solo activo en BKP01) | **Implementado (27/11):** Director en BKP02 en *cold standby*, con la configuración y el catálogo sincronizados cada 30 min | Director en HA |
 
 ---
 
@@ -380,6 +421,10 @@ cibernova.local
 | SQL Server | `BACKUP DATABASE` (completa diaria) + `BACKUP LOG` (cada 15 min) desde la réplica secundaria → Bareos | Según tipo |
 | LNX01/02, BKP | `/etc`, `/var/www`, configuración de Kea y Pacemaker | Diaria |
 
+**Implementado (27/11):** FileSet `CiberNovaLinux` (LNX01/LNX02: `/etc`, `/root`, `/home`, `/usr/local/sbin`, `/var/www`, `/srv/sftp`, `/var/opt/mssql/backup`; sin los ficheros de datos de SQL Server) y `CiberNovaBKP01` (`/etc`, `/root`, `/home`, `/usr/local/sbin`; sin volúmenes ni PostgreSQL, que se copia con el volcado de `BackupCatalog`). Las copias de log de SQL Server cada 15 min no se han implementado (ver 9.3).
+
+**Calendario (27/11, Max):** las máquinas solo están encendidas en horario de sesión, así que el calendario de ejemplo de Bareos (21:00) no haría ninguna copia. Completa los **martes a las 16:45** e incremental los **jueves a las 18:30**; todos los trabajos a la misma hora con prioridades: servidores (10), catálogo (11) y copia a BKP02 (15). Calendarios de ejemplo con `Enabled = no`. Alternativas descartadas: dejar las 21:00 y lanzar las copias a mano (depende de acordarse) y copias cada hora. Los martes no se apaga antes de las 16:55.
+
 ### 9.2 Regla 3-2-1
 
 1. Dato original (servidor de origen).
@@ -396,6 +441,8 @@ cibernova.local
 | RPO base de datos | 15 min (copias de log) |
 | RTO restauración de una carpeta | < 30 min |
 | RTO reconstrucción de un servidor | < 4 h |
+
+**Con el calendario en horario de sesión (27/11), el RPO real de las copias es de 2 a 5 días** (de martes a jueves y de jueves a martes): limitación del entorno del aula, no del diseño [PENDIENTE DE CONFIRMAR con Oriol]. En producción (servidores encendidos siempre) se aplicarían los objetivos de la tabla. La base de datos no depende de las copias para su disponibilidad: el AG mantiene RPO 0 ante la caída de un nodo.
 
 **Medido el 26/11 (base de datos y web en alta disponibilidad):** RPO **0** (commit síncrono: ninguna fila perdida en tres conmutaciones) y RTO de **≈ 29–36 s** por conmutación, de los que ≈ 22 s son la promoción del AG (comprobación de que la nueva principal tiene todas las transacciones). Propuesta de objetivo [PENDIENTE DE CONFIRMAR]: **RTO < 1 min** para BBDD y web ante la caída de un nodo.
 
@@ -422,7 +469,11 @@ Los servidores solo pueden estar encendidos en horario de proyecto y el centro p
 | Poco tiempo de laboratorio: 6 sesiones de 2 h hasta el cierre de GitHub del 4/12 (D-04) | Alta | Alto | Trabajo preparado en casa (scripts, configuraciones, documentación); plan B para el AG |
 | Complejidad del AG de SQL Server en Linux con Pacemaker | Media | Alto | Semana dedicada; si no funciona el 1/12, plan B: AG con conmutación manual y documentar el desfase |
 | Caducidad de la evaluación de Windows Server 2025 (180 días, ~mayo) | Alta | Alto | Comprobar *rearm* con `slmgr /dlv`; registrar fecha de caducidad |
-| DHCP del aula responde a nuestros clientes | Media | Medio | Pool solo para clientes conocidos; coordinar con el profesorado |
+| ~~DHCP del aula responde a nuestros clientes~~ | — | — | **Resuelto (27/11):** el DHCP va en la red aislada `vmbr1` |
+| Un cambio de red en un nodo del clúster borra la VIP (`networkctl reload`, `netplan apply`) | **Ocurrido** (27/11, ≈ 3 s sin web) | Medio | Pacemaker la repuso solo. Procedimiento: `pcs node standby` antes de cambiar la red de LNX01/LNX02 |
+| RPO de las copias de 2 a 5 días (máquinas apagadas fuera de sesión) | Cierta | Medio | Copias en horario de sesión; el AG da RPO 0 a la base de datos; documentado como limitación del aula |
+| Sobreasignación del *thin pool* (≈ 1.290 GB asignados de ~1,5 TB) | Baja | Alto | Uso real muy inferior; cuotas de FSRM y máximo de volúmenes de Bareos; vigilar `lvs` |
+| Copia del SFTP y de la web cada minuto: se pierde lo del último minuto si cae el nodo activo; lo cambiado en el nodo pasivo se sobrescribe | Media | Bajo | RPO de 1 min aceptado; los cambios de la web se hacen siempre en el nodo activo |
 | Conflictos con otros grupos en la red compartida | Baja | Medio | Identificadores propios y unicast |
 | Red plana sin segmentación: un equipo comprometido llega a todos los servidores | Media | Alto | Firewall en cada servidor y mínimo privilegio; segmentación con VLAN prevista como remediación en la Fase 3 (apartado 3.11) |
 | Apagado brusco de los servidores | Media | Medio | Orden de arranque, apagado ordenado, copias |
@@ -436,7 +487,7 @@ Los servidores solo pueden estar encendidos en horario de proyecto y el centro p
 | Contraseña de `pacemakerLogin` en texto plano en `/var/opt/mssql/secrets/passwd` (lo exige el agente de Microsoft) | Baja | Medio | Riesgo aceptado: fichero `root` con permisos `400` en cada nodo; el login solo tiene permisos sobre el AG |
 | Conmutación del AG de unos 30 s (la promoción tarda ≈ 22 s) | Cierta | Bajo | Aceptado: es el precio de RPO 0. Medido el 26/11; posible ajuste de tiempos del agente en la Fase 3 |
 | La web confía en el certificado autofirmado de SQL Server (`TrustServerCertificate=yes`) y la contraseña de `web_cibernova` está en `/etc/cibernova/web.ini` | Baja | Medio | Riesgo aceptado: conexión cifrada igualmente, fichero `640 root:www-data` fuera de la carpeta web y login con permisos mínimos. Fase 3: certificado propio para SQL Server |
-| Contenido web distinto en LNX01 y LNX02 (se copia a mano) | Media | Medio | Comprobación con `ls -l`; elegir método de despliegue con la aplicación definitiva (WEB-03) |
+| ~~Contenido web distinto en LNX01 y LNX02 (se copia a mano)~~ | — | — | **Resuelto (27/11):** `web-sync.sh` cada minuto desde el nodo activo (WEB-03) |
 | Contraseña de `fence@pve` guardada en la configuración de Pacemaker (CIB) y `ssl_insecure=1` (certificado autofirmado de Proxmox) | Baja | Medio | Riesgo aceptado: `fence@pve` solo puede encender y apagar las VMs 128–130. Fase 3: instalar la CA de Proxmox en los nodos y quitar `ssl_insecure` |
 
 ---
@@ -448,12 +499,13 @@ Los servidores solo pueden estar encendidos en horario de proyecto y el centro p
 - [x] Host confirmado (17/11): RAID 10 por hardware, LVM-thin, una sola NIC con cable, `vmbr0` /22, Proxmox 9.2.21.
 - [x] ~~La VM Ubuntu "WEB01" (192.168.202.25) se adapta a LNX01 (.28)~~ (16/11). **Anulado el 17/11:** WEB01 no era Ubuntu 24.04; LNX01 se instaló de cero en VirtualBox y se importa como OVA (desfase D-03). La .25 queda para FS01.
 - [x] LNX02 y BKP01 creadas el 17/11 clonando LNX01 en Proxmox (opción A, con `machine-id`, claves SSH, nombre e IP propios). BKP01 personalizada el 18/11. **BKP02 (19/11): clon de la instantánea `base-limpia` de LNX01**, anterior a SQL Server, para que solo tenga el software que necesita (alternativa descartada: clonar LNX01 actual y desinstalar SQL Server).
-- [ ] Decidir la aplicación web (debe usar SQL Server).
-- [ ] Hablar con el profesorado del DHCP en la red del aula y de una segunda NIC.
+- [x] Aplicación web: Portal CiberNova, intranet interna (27/11, Max).
+- [x] ~~Hablar con el profesorado del DHCP en la red del aula~~: el DHCP va en la red aislada `vmbr1` (27/11). Sigue pendiente preguntar por una segunda NIC.
 - [ ] Fase 2: la IA necesitará al menos una IP; se reutilizarán .32/.33 o se pedirán más.
 - [ ] Preguntar al profesorado si se esperan VLAN en la Fase 1 (apartado 3.11).
 - [ ] Fase 3: segmentación de red con VLAN y firewall redundante como remediación.
 - [ ] Diagramas de red y de arquitectura en `docs/diagramas` (Mermaid), exigidos en el entregable.
 - [ ] Decidir el uso de `svc_web` y `svc_bbdd` en los servicios Linux (mínimo privilegio).
-- [ ] Decidir cómo se mantiene igual el contenido web y los datos del SFTP en LNX01 y LNX02.
-- [ ] Copia de las VMs (norma 2 del enunciado): propuesta `vzdump` [PENDIENTE DE CONFIRMAR].
+- [x] Contenido web y datos del SFTP iguales en LNX01 y LNX02: rsync cada minuto desde el nodo con la VIP (27/11, Max).
+- [ ] Copia de las VMs (norma 2 del enunciado): no es obligatoria en la Fase 1 y no cabe en `local`; preguntar al profesorado por un disco externo y hacerla antes de la Fase 3 [PENDIENTE DE CONFIRMAR].
+- [ ] Prueba de caída del DHCP (VM de prueba en `vmbr1`) y prueba de activación del Director en BKP02.

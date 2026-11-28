@@ -1,7 +1,7 @@
 # Memoria técnica de la infraestructura desplegada – Fase 1
 
 **Grupo 3:** Max (Linux) · Oriol (Windows)
-**Versión:** 0.15 · 27/11/2026 (Oriol, 26–27/11: prioridad de referencias DFS e informe de DFS-R, apartado 2.7; permisos P-01 a P-44, carpetas personales, cuotas, perfiles, GPO de unidades y redirección, hora del dominio y OVA de los Windows, apartado 2.8) · v0.14 · 27/11/2026 (sesión 4 Linux: base de datos en el AG, conmutaciones y tiempos medidos, Apache + PHP-FPM en Pacemaker, usuario `web_cibernova`, firewall `ufw`, apartado 2.3.9) · v0.13 · 24/11/2026 (FS02 y replicación DFS-R, apartado 2.7) · v0.12 · 24/11/2026 (AG de SQL Server en Pacemaker con VIP .27, apartado 2.3.8; FS01: carpetas del espacio de nombres y replicación con DC02, apartado 2.6) · v0.11 · 23/11/2026 (FS01 en VirtualBox: dominio, disco de datos, roles, espacio de nombres y recursos compartidos, apartado 2.6) · v0.10 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing, apartado 2.3.7) · v0.9 · 19/11/2026 (sesión 2 Linux: SQL Server configurado, BKP01 y BKP02, apartado 2.3.6) · v0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
+**Versión:** 0.17 · 27/11/2026, noche · **V22 definitiva (fusión del 28/11).** Max (27/11 fuera de horario: SFTP, Bareos con copia a BKP02 y PR-06, calendario, Portal CiberNova, WEB-03, Kea HA en `vmbr1` y Director en espera, apartado 2.3.10) · v0.16 · 27/11/2026 (Oriol, tarde: importación de DC01, DC02, FS01 y FS02 en Proxmox, apartado 2.9; red aislada `vmbr1` para el DHCP, apartado 2.10) · v0.15 · 27/11/2026 (Oriol, 26–27/11: prioridad de referencias DFS e informe de DFS-R, apartado 2.7; permisos P-01 a P-44, carpetas personales, cuotas, perfiles, GPO de unidades y redirección, hora del dominio y OVA de los Windows, apartado 2.8) · v0.14 · 27/11/2026 (sesión 4 Linux: base de datos en el AG, conmutaciones y tiempos medidos, Apache + PHP-FPM en Pacemaker, usuario `web_cibernova`, firewall `ufw`, apartado 2.3.9) · v0.13 · 24/11/2026 (FS02 y replicación DFS-R, apartado 2.7) · v0.12 · 24/11/2026 (AG de SQL Server en Pacemaker con VIP .27, apartado 2.3.8; FS01: carpetas del espacio de nombres y replicación con DC02, apartado 2.6) · v0.11 · 23/11/2026 (FS01 en VirtualBox: dominio, disco de datos, roles, espacio de nombres y recursos compartidos, apartado 2.6) · v0.10 · 23/11/2026 (clúster Pacemaker de 3 nodos y fencing, apartado 2.3.7) · v0.9 · 19/11/2026 (sesión 2 Linux: SQL Server configurado, BKP01 y BKP02, apartado 2.3.6) · v0.8 · 19/11/2026 (DC02 promovido; reenviadores de DC02, apartado 3.3) · v0.7 · 19/11/2026 (DC02 en VirtualBox, apartado 2.4) · v0.6 · 19/11/2026 (reenviadores corregidos a 8.8.8.8 y 1.1.1.1; scripts 04 y 93 v1.2) · v0.5 · 18/11/2026 (sesión 1 y DNS/GPO de DC01)
 
 > Documento vivo: se amplía al terminar cada servicio. Lo marcado con **[PENDIENTE DE CONFIRMAR]** hay que verificarlo.
 
@@ -12,14 +12,14 @@
 | VM | Estado | Dónde está | Notas |
 |---|---|---|---|
 | Host Proxmox | Instalado (Proxmox VE 9.2.21, nodo `PROC`) | Servidor físico (192.168.202.3) | Ver [guía del hipervisor](02-guia-instalacion-hipervisor.md) |
-| DC01 | **AD completo** (16/11): bosque `cibernova.local`, 23 OU, 27 grupos, 89 empleados, 6 cuentas adm., 6 cuentas especiales y políticas de contraseña. **DNS configurado y verificado** (18/11, apartado 3.3) y **GPO de seguridad** (18/11, apartado 3.4). Hora con `hora.roa.es` (raíz de la jerarquía de hora del dominio, 26/11). 63 grupos `DL_`, GPO de unidades y de redirección (26/11). **No se importó el 17/11 (D-05).** | **OVA exportada el 27/11**, pendiente de importar en Proxmox (VMID 123) | Apartado 2.8 |
-| DC02 | **Promovido el 19/11 en VirtualBox** (DNS + catálogo global), replicando con DC01 | **OVA exportada el 27/11**, pendiente de importar en Proxmox (VMID 124) después de DC01 | Ver precauciones del apartado 2.4 y [guía 07](07-guia-dominio-dc02-union.md), apartado 2 |
-| LNX01 | **Proxmox (VMID 128)**: Ubuntu 24.04.5, IP .28 fija, DNS públicos, **SQL Server 2025 Enterprise Developer** con Always On y Agente. Réplica del AG `sqlag_cibernova` (24/11) con `cibernova_pruebas`; Apache + PHP-FPM con `sqlsrv` (26/11); `ufw` activo (26/11) | **Proxmox** | Importación manual (el asistente falló). Apartados 2.3, 2.3.6, 2.3.8 y 2.3.9 |
-| LNX02 | **Proxmox (VMID 129)**: clon de LNX01 personalizado, IP .29, **SQL Server 2025 Enterprise Developer** con Always On y Agente. Réplica del AG (24/11); **réplica principal, VIP .27 y Apache al terminar el 26/11**; Apache + PHP-FPM con `sqlsrv`. `ufw` pendiente | Proxmox | Apartados 2.3.4, 2.3.6, 2.3.8 y 2.3.9 |
-| BKP01 | **Proxmox (VMID 130)**: clon personalizado (18/11), IP .30, **SQL Server 2025 Express**, **réplica de solo configuración del AG** (24/11) y tercer nodo Pacemaker; `ufw` activo (26/11) | Proxmox | Apartados 2.3.4, 2.3.6, 2.3.8 y 2.3.9 |
-| BKP02 | **Proxmox (VMID 131)**: clon de la instantánea `base-limpia` (sin SQL Server), personalizado, IP .31 | Proxmox | Apartado 2.3.6. Bareos pendiente |
-| FS01 | **Configuración base (23/11):** unida al dominio (OU Servidores), D: `Datos` de 150 GB, roles de ficheros, espacio de nombres `\\cibernova.local\empresa` con ABE y cuatro recursos compartidos ocultos. **26/11:** prioridad en las referencias, 50 carpetas con los permisos de la matriz, 89 carpetas personales, cuotas y `Perfiles$` | **OVA exportada el 27/11**, pendiente de importar en Proxmox (VMID 125) | Apartados 2.6 y 2.8 |
-| FS02 | **Configurada (24/11):** unida al dominio (OU Servidores), D: de 150 GB, roles, cuatro recursos compartidos, segundo servidor del espacio de nombres y **DFS-R con FS01** probada; permisos replicados (script 96: 0 errores), cuotas y `Perfiles$` (26/11) | **OVA exportada el 27/11**, pendiente de importar en Proxmox (VMID 126) | Apartados 2.7 y 2.8 |
+| DC01 | **AD completo** (16/11): bosque `cibernova.local`, 23 OU, 27 grupos, 89 empleados, 6 cuentas adm., 6 cuentas especiales y políticas de contraseña. **DNS configurado y verificado** (18/11, apartado 3.3) y **GPO de seguridad** (18/11, apartado 3.4). Hora con `hora.roa.es` (raíz de la jerarquía de hora del dominio, 26/11). 63 grupos `DL_`, GPO de unidades y de redirección (26/11). **No se importó el 17/11 (D-05).** | **Proxmox (VMID 123)**, importada el 27/11; parada, falta arrancarla y volver a poner la IP | Apartado 2.8 |
+| DC02 | **Promovido el 19/11 en VirtualBox** (DNS + catálogo global), replicando con DC01 | **Proxmox (VMID 124)**, importada el 27/11; parada, se arranca después de DC01 | Ver precauciones del apartado 2.4 y [guía 07](07-guia-dominio-dc02-union.md), apartado 2 |
+| LNX01 | **Proxmox (VMID 128)**: Ubuntu 24.04.5, IP .28 fija (y 10.10.10.28 en `vmbr1`, 27/11), DNS públicos, **SQL Server 2025 Enterprise Developer** con Always On y Agente. Réplica del AG `sqlag_cibernova` (24/11) con `cibernova_pruebas`; Apache + PHP-FPM con `sqlsrv` (26/11); `ufw` activo (26/11). **27/11:** SFTP (claves y rsync), agente Bareos, Portal CiberNova, `web-sync`, **Kea primario** en `ens19` (10.10.10.28); réplica principal, VIP y Apache al terminar | **Proxmox** | Importación manual (el asistente falló). Apartados 2.3, 2.3.6, 2.3.8 y 2.3.9 |
+| LNX02 | **Proxmox (VMID 129)**: clon de LNX01 personalizado, IP .29 (y 10.10.10.29 en `vmbr1`, 27/11), **SQL Server 2025 Enterprise Developer** con Always On y Agente. Réplica del AG (24/11); **réplica principal, VIP .27 y Apache al terminar el 26/11**; Apache + PHP-FPM con `sqlsrv`. **27/11:** `ufw`, mismas claves de host que LNX01, agente Bareos, portal, **Kea en espera** en `ens19` (10.10.10.29) | Proxmox | Apartados 2.3.4, 2.3.6, 2.3.8 y 2.3.9 |
+| BKP01 | **Proxmox (VMID 130)**: clon personalizado (18/11), IP .30, **SQL Server 2025 Express**, **réplica de solo configuración del AG** (24/11) y tercer nodo Pacemaker; `ufw` activo (26/11). **27/11: Bareos** (Director, catálogo PostgreSQL, almacenamiento, disco de 200 GB) y `bareos-standby-sync` | Proxmox | Apartados 2.3.4, 2.3.6, 2.3.8 y 2.3.9 |
+| BKP02 | **Proxmox (VMID 131)**: clon de la instantánea `base-limpia` (sin SQL Server), personalizado, IP .31. **27/11:** claves de host regeneradas, `ufw`, almacenamiento Bareos (disco de 200 GB, volúmenes `CopiaBKP02-*`) y **Director en espera** (parado) | Proxmox | Apartados 2.3.6 y 2.3.10 |
+| FS01 | **Configuración base (23/11):** unida al dominio (OU Servidores), D: `Datos` de 150 GB, roles de ficheros, espacio de nombres `\\cibernova.local\empresa` con ABE y cuatro recursos compartidos ocultos. **26/11:** prioridad en las referencias, 50 carpetas con los permisos de la matriz, 89 carpetas personales, cuotas y `Perfiles$` | **Proxmox (VMID 125)**, importada el 27/11; parada, falta arrancarla y volver a poner la IP | Apartados 2.6 y 2.8 |
+| FS02 | **Configurada (24/11):** unida al dominio (OU Servidores), D: de 150 GB, roles, cuatro recursos compartidos, segundo servidor del espacio de nombres y **DFS-R con FS01** probada; permisos replicados (script 96: 0 errores), cuotas y `Perfiles$` (26/11) | **Proxmox (VMID 126)**, importada el 27/11; parada, falta arrancarla y volver a poner la IP | Apartados 2.7 y 2.8 |
 | Clientes | Sin crear | — | — |
 
 > **Lista de todo lo pendiente** (requisitos del enunciado y del Anexo I, con su estado): [`docs/gestion/lista-tareas-fase1.md`](../gestion/lista-tareas-fase1.md).
@@ -607,6 +607,69 @@ No se abren 3121 (Pacemaker Remote) ni 21064 (DLM), previstos el 24/11, porque n
 
 **Capturas** (prefijo `2026-11-26_sesion04_`, 66 en `capturas-sesion04.zip`): `lnx01_pcs-status-inicial`, `lnx01_ag-estado-por-vip`, `lnx01_grant-create-any-database`, `lnx01_bbdd-creada-backup`, `lnx01_bbdd-anadida-ag`, `lnx01_bbdd-sincronizada`, `lnx01_datos-prueba-lnx02`, `lnx01_ag-healthy`, `lnx01_pcs-move-lnx01`, `lnx01_constraints-tras-move`, `lnx01_datos-tras-conmutacion`, `proc_ping-vip-inicio`, `proc_qm-stop-128`, `lnx02_pcs-status-caida-lnx01`, `proc_ping-vip-corte`, `proc_ping-vip-resumen`, `lnx02_pcs-status-tras-caida`, `lnx02_stonith-history`, `lnx02_datos-tras-caida`, `proc_qm-status-128`, `lnx02_lnx01-resincronizada`, `lnx0X_apache-php-instalado`, `lnx0X_pecl-sqlsrv`, `lnx0X_drivers-so`, `lnx0X_sqlsrv-ini`, `lnx0X_pdo-sqlsrv-ini`, `lnx0X_php-sqlsrv`, `lnx0X_nodo-php`, `lnx0X_apache-disabled`, `lnx02_pcs-apache-creado`, `proc_curl-vip-nodo`, `lnx02_pcs-move-web`, `proc_curl-bucle-conmutacion`, `lnx0X_journal-tiempos-conmutacion`, `lnx01_login-web`, `lnx02_login-web-mismo-sid`, `lnx02_usuario-bbdd-web`, `lnx01_web-ini`, `lnx0X_web-ini-permisos`, `lnx_bbdd-php-codigo`, `proc_curl-bbdd-php`, `lnx0X_ficheros-web`, `proc_bucle-cadena-completa`, `lnx01_pcs-move-lnx02`, `lnx01_ufw-*`, `lnx02_pcs-status-tras-ufw-lnx01`, `bkp01_ufw-*`, `proc_curl-bbdd-ufw`, `lnx02_pcs-status-ufw-final`.
 
+### 2.3.10 27/11 (fuera de horario, con permiso): SFTP, Bareos, portal web, WEB-03, DHCP y Director en espera
+
+**1. `ufw` en LNX02** con las mismas 15 reglas que LNX01 (tabla del apartado 2.3.9), activado con LNX02 como secundaria y comprobando `pcs status`. Con esto LNX-06 y DB-06 quedan completos en los tres nodos del clúster. BKP02: 22/tcp desde la red del aula y 9103/tcp desde .30 (copia) y desde .28/.29 (restauración, ver punto 6).
+
+**2. SFTP (SFTP-02 y SFTP-03).** Usuarios del dominio (se espera al dominio para `sshd` con *chroot*). Las **claves de host SSH de LNX01 se copian a LNX02** (las antiguas en `/root/ssh-hostkeys-antiguas`): por la VIP, con claves distintas el cliente vería otra huella tras cada conmutación. Los datos (`/srv/sftp`, `root:root 755`) se copian cada minuto desde el nodo con la VIP:
+
+```bash
+# Cada nodo: clave propia sin contraseña
+sudo ssh-keygen -t ed25519 -N "" -f /root/.ssh/sftp_sync
+# En el otro nodo, /root/.ssh/authorized_keys (solo rsync en /srv/sftp y solo desde esa IP):
+command="/usr/bin/rrsync /srv/sftp",restrict,from="192.168.202.29" ssh-ed25519 AAAA... root@lnx02
+# /etc/cron.d/sftp-sync
+* * * * * root /usr/local/sbin/sftp-sync.sh
+```
+
+`scripts/linux/sftp-sync.sh` v1.0 sale sin hacer nada si el nodo no tiene la .27, así que el sentido de la copia cambia solo con la VIP. Probado en los dos sentidos (LNX01 → LNX02 en 19 s; tras `pcs resource move`, LNX02 → LNX01). La clave no abre una sesión (`rrsync error: Not invoked via sshd`). Para que `rsync` entre como root con clave: `PermitRootLogin prohibit-password`.
+
+**3. Arranque en frío:** Pacemaker intentó promover lnx02 y el agente lo rechazó (`41142`, base de datos sin sincronizar): es la protección del RPO 0. Promovió lnx01; `sudo pcs resource cleanup ag_cluster`.
+
+**4. Bareos 25.1.3 (BKP-01).** Repositorio oficial de Bareos en BKP01 y BKP02.
+- BKP01: `bareos-director`, `bareos-storage`, `bareos-filedaemon`, `bareos-bconsole`, `bareos-database-postgresql` con **PostgreSQL 16 local** (`dbconfig`). BKP02: `bareos-storage`.
+- Disco de datos de 200 GB en cada una: `qm set 130 --scsi1 local-lvm:200,iothread=1,discard=on` (y 131), ext4 en `/srv/bareos` (`fstab` por UUID), volúmenes en `/srv/bareos/storage`.
+- `storage/File.conf` con `Address = 192.168.202.30`; `storage/File-BKP02.conf` con `Address = 192.168.202.31`, `Media Type = FileBKP02` y la contraseña del almacenamiento de BKP02 (marcador en el repositorio). TLS 1.3 entre componentes (TLS-PSK de Bareos).
+- Comprobación de la configuración antes de cada recarga: `sudo -u bareos bareos-dir -t && echo "reload" | sudo bconsole`.
+
+**5. Agentes y SQL Server (BKP-02 parcial, BKP-03).** `bareos-filedaemon` en LNX01 y LNX02, dados de alta con `configure add client` (el fichero del Director para el agente se exporta y se copia al cliente). FileSet `CiberNovaLinux` (`configs/linux/bareos/bareos-dir.d/fileset/`), trabajos `backup-lnx01`/`backup-lnx02` con `ClientRunBeforeJob = "/usr/local/sbin/bareos-sql-backup.sh"`.
+- `scripts/linux/bareos-sql-backup.sh`: lee `/root/.sqlbackup.cred` (usuario y contraseña de `backup_cibernova`, `db_backupoperator`; contraseña por `SQLCMDPASSWORD`) y, por cada base de datos, decide: secundaria sincronizada → copia; principal → copia solo si no hay ninguna otra réplica `SYNCHRONIZED`. Copia con `BACKUP DATABASE ... WITH COPY_ONLY, INIT, CHECKSUM, COMPRESSION` en `/var/opt/mssql/backup`; si no le toca, borra el `.bak` antiguo.
+- v1.0 → **v1.1**: `sys.fn_hadr_backup_is_preferred_replica` devolvía 0 en las dos réplicas porque bkp01 tiene prioridad 50 y en una réplica de solo configuración no se puede cambiar (`MODIFY REPLICA ... BACKUP_PRIORITY`: error 47112). → **v1.2** (tarde): añade `cibernova_portal`.
+- Trabajos 1 y 2 (`Backup OK`); trabajo 3 (`Restore OK`) con SHA-256 idénticos; restauración de la BD en otra base de datos: 36 filas e id máximo 4002, igual que en el AG.
+- **BKP02 tenía las claves de host de LNX01** (la personalización del 19/11 no las regeneró): `sudo rm /etc/ssh/ssh_host_* && sudo dpkg-reconfigure openssh-server` y `ssh-keygen -R 192.168.202.31` donde se había guardado la huella.
+
+**6. Copia a BKP02 (BKP-04) y PR-06.**
+
+```
+Pool { Name = Copia-BKP02; Pool Type = Backup; Storage = File-BKP02; Recycle = yes; AutoPrune = yes
+       Volume Retention = 365 days; Maximum Volume Bytes = 50G; Maximum Volumes = 3; Label Format = "CopiaBKP02-" }
+# Full, Differential e Incremental: Next Pool = Copia-BKP02
+Job { Name = "copia-a-bkp02"; Type = Copy; Selection Type = PoolUncopiedJobs; Pool = Full
+      Schedule = "CiberNova-Copia"; Priority = 15; Messages = Standard }
+```
+
+`run job=copia-a-bkp02`: trabajo de control 4 (tipo `c`) y copias 6 y 8 (tipo `C`) en `CopiaBKP02-0002` (el número es el `MediaId`). **PR-06:** `sudo systemctl stop bareos-storage` en BKP01 y `restore jobid=6 client=lnx01-fd where=/tmp/restore-bkp02 all done yes`. Se quedó en `waiting for Client to connect to Storage daemon`: en una restauración el agente conecta **directamente** al almacenamiento que tiene los datos, y en BKP02 el 9103 solo estaba abierto para .30. **Hallazgo:** `ufw allow from 192.168.202.28/.29 to any port 9103 proto tcp` en BKP02. Resultado: 2.225/2.225 ficheros, `FD Errors: 0` (`with warnings` = el *timeout* anterior), SHA-256 idénticos y `cibernova_pruebas.bak` recuperado.
+
+**7. Calendario (BKP-04).** `schedule/CiberNova-Sesiones.conf` (`Run = Full tue at 16:45`, `Run = Incremental thu at 18:30`) en `JobDefs DefaultJob`; `CiberNova-Catalogo.conf` (Full los dos días) en `BackupCatalog` (prioridad 11); `CiberNova-Copia.conf` (`Pool=Full` los dos días y `Pool=Incremental` el jueves) en `copia-a-bkp02` (prioridad 15). `WeeklyCycle` y `WeeklyCycleAfterBackup` con `Enabled = no`. Comprobación: `status scheduler days=8`. **Incidencia:** nano se colgó al pegar un fichero; se crean con `printf '...' | sudo tee fichero` (la carpeta `schedule` es `750 bareos`: para usar `*` hace falta `sudo sh -c '...'`).
+
+**8. Copia de BKP01.** FileSet `CiberNovaBKP01` (`/etc`, `/root`, `/home`, `/usr/local/sbin`) y trabajo `backup-bkp01` (`Client = "bareos-fd"`); `backup-bareos-fd` con `Enabled = no`. Trabajo 10: 2.219 ficheros, con `/etc/bareos/bareos-dir.d/` completo.
+
+**9. Portal CiberNova (WEB-01, DB-05).** `configs/linux/web/portal/cibernova_portal.sql` v1.0 contra la VIP (`sqlcmd -S 192.168.202.27 -U sa -C -i ...`): crea la BD, recuperación completa, tabla `dbo.incidencias` (título, descripción, sede, prioridad, estado, fechas, `servidor_bd`, `nodo_web`), usuario `web_cibernova` con `SELECT, INSERT, UPDATE` solo en esa tabla, copia inicial y `ADD DATABASE` al AG (*seeding* a LNX01: `SYNCHRONIZED`/`HEALTHY`). `bbdd_portal = "cibernova_portal"` añadido a `/etc/cibernova/web.ini` de los dos nodos. Aplicación `configs/linux/web/portal/index.php` v1.1 en `/var/www/html/portal` (`install -d -o root -g www-data -m 750` y `install ... -m 640`), pegada con `sudo tee <<'FIN'` (191 líneas, 12.186 bytes en los dos nodos, `php -l` sin errores).
+
+**10. Copias del portal y conmutación.** `USE cibernova_portal; CREATE USER backup_cibernova FOR LOGIN backup_cibernova; ALTER ROLE db_backupoperator ADD MEMBER backup_cibernova;` (viaja con el AG; el login ya tiene el mismo SID en los dos nodos). Script v1.2 probado en los dos nodos; `cibernova_portal_inicial.bak` borrado de LNX02. Trabajo 11 (Incremental): 14 ficheros con los dos `.bak` y `index.php`. Conmutación `pcs resource move ag_cluster-clone lnx01 --promoted` + `pcs resource clear`: el portal pasa a lnx01 con todas las incidencias; la nueva salta a id 1002 (caché de `IDENTITY`).
+
+**11. Incidencia de la VIP (19:00).** Configurando `ens19` en LNX02 para el DHCP: `netplan generate` + `networkctl reload` → `systemd-networkd` reconfigura también `ens18` (`DHCPv6 lease lost`) y borra la .27 → `virtualip_monitor_10000 'not running'` (19:00:35) → Pacemaker para Apache, repone la VIP y arranca Apache (≈ 3 s). `sudo pcs resource cleanup virtualip`. Procedimiento: `pcs node standby lnx0X` antes de tocar la red de un nodo del clúster y `pcs node unstandby` al terminar.
+
+**12. WEB-03.** Igual que el SFTP: clave `/root/.ssh/web_sync` por nodo, autorizada en el otro con `command="/usr/bin/rrsync /var/www/html",restrict,from="IP"` (huellas comprobadas con `ssh-keygen -lf`), `scripts/linux/web-sync.sh` v1.0 y `/etc/cron.d/web-sync` cada minuto. `web.ini` no se copia. Probado: fichero nuevo y borrado (`--delete`) propagados; `/var/log/web-sync.log` vacío.
+
+**13. DHCP (DHCP-01, DHCP-02).** Oriol: `qm set 128 --net1 virtio,bridge=vmbr1` (y 129), `/etc/netplan/60-vmbr1.yaml` con `ens19` 10.10.10.28/24 y .29/24 sin puerta de enlace ni DNS. Max: `sudo apt install -y --no-install-recommends kea-dhcp4-server` (Kea 2.4.1, *hooks* en `/usr/lib/x86_64-linux-gnu/kea/hooks/`), `configs/linux/kea/kea-dhcp4.conf` (`this-server-name` distinto en cada nodo), `kea-dhcp4 -t` antes de arrancar, `ufw allow in on ens19` 67/udp y 8000/tcp desde el otro nodo, `systemctl restart kea-dhcp4-server`. Comprobación: `ss -tlnp | grep 8000` y `ha-heartbeat` por HTTP (`"state": "hot-standby"`, `scopes` `["lnx01"]` en el primario y `[]` en el de espera). Incidencias: `output-options` → `output_options` (v1.1) y Kea arrancado por el paquete con la configuración de ejemplo (sin interfaces, no repartió nada).
+
+**14. Director en espera (BKP-05).** BKP02: `echo "bareos-database-common bareos-database-common/dbconfig-install boolean false" | sudo debconf-set-selections`, `apt install bareos-director bareos-database-postgresql bareos-bconsole postgresql`, `systemctl disable --now bareos-director`. `/srv/bareos/standby` (`700 root`). BKP01: clave `/root/.ssh/standby_sync` autorizada en BKP02 con `command="/usr/bin/rrsync /srv/bareos/standby",restrict,from="192.168.202.30"`; `scripts/linux/bareos-standby-sync.sh` v1.0 (`pg_dump -d bareos | gzip` + `rsync` de `/etc/bareos`), `/etc/cron.d/bareos-standby-sync` cada 30 min. Primera sincronización a las 20:30:27 (catálogo de 350 KB y `/etc/bareos` completo). La activación (crear el rol y la BD `bareos` en el PostgreSQL de BKP02, cargar el volcado, copiar `bareos-dir.d` y arrancar el Director) se documenta en el manual de operación y se probará en una sesión.
+
+**15. Dimensionamiento real** (`qm config`): LNX01/LNX02 con un disco de 60 GB; BKP01/BKP02 con 60 + 200 GB. Total asignado ≈ 1.290 GB (diseño, apartado 6).
+
+**Capturas:** prefijo `2026-11-27_sesion04b_`, marcadas en el apartado 17 de la memoria del proyecto y en el apartado del DHCP.
+
 ### 2.4 Precauciones con los controladores de dominio
 
 - **DC02 no se puede crear clonando DC01.** Un DC promovido no se clona nunca. DC02 se crea con una instalación limpia de Windows Server 2025 (o clonando una plantilla **sin dominio** a la que se haya pasado `sysprep /generalize /oobe /shutdown`), y después se promueve como DC adicional del dominio `cibernova.local`.
@@ -768,7 +831,75 @@ Comprobado en FS02: `w32tm /query /source` → `DC01.cibernova.local`. En Proxmo
 
 #### 2.8.7 Exportación de los Windows a OVA (27/11)
 
-Con todo lo anterior hecho, se exportan a OVA las máquinas Windows de VirtualBox (DC01, DC02, FS01 y FS02 [PENDIENTE DE CONFIRMAR que son las cuatro]), a la espera de importarlas en Proxmox (VMID 123–126) con el procedimiento del apartado 2.2 (de una en una, DC01 primero, borrando cada OVA de `local` después). **Desde la exportación, las copias de VirtualBox no se tocan:** los cambios no llegarían a Proxmox y, en los DC, encender una copia antigua después de importar rompería la replicación (*USN rollback*, apartado 2.4).
+Con todo lo anterior hecho, se exportan a OVA las máquinas Windows de VirtualBox (DC01, DC02, FS01 y FS02) y se importan en Proxmox esa misma tarde (apartado 2.9). **Desde la exportación, las copias de VirtualBox no se tocan:** los cambios no llegarían a Proxmox y, en los DC, encender una copia antigua después de importar rompería la replicación (*USN rollback*, apartado 2.4).
+
+### 2.9 Importación de los Windows en Proxmox (27/11, Oriol)
+
+**Qué he hecho:** he importado las cuatro OVA a mano (el asistente de Proxmox ya falló con LNX01), de una en una y DC01 primero, borrando cada OVA al terminar porque `local` solo tenía 18 GB libres.
+
+**Decisión: disco SATA y tarjeta E1000, no VirtIO.** Windows no trae los controladores VirtIO; si el disco fuera VirtIO, no arrancaría. Con SATA y E1000 arranca a la primera. **Alternativa:** instalar los controladores VirtIO (`virtio-win.iso`) y cambiar después el disco y la tarjeta para ganar rendimiento (HV-08) [PENDIENTE DE CONFIRMAR]. El OVF no indica UEFI (`<Firmware/>` vacío), así que las VMs son BIOS.
+
+Comandos (ejemplo de FS01, con dos discos; en los DC solo hay `sata0`):
+```bash
+cd /var/lib/vz/import && mkdir fs01 && tar -xvf FS01.ova -C fs01 && ls -l fs01
+grep -i "capacity\|href" fs01/*.ovf
+qm create 125 --name FS01 --ostype win11 --cores 2 --memory 4096 --net0 e1000,bridge=vmbr0 --agent 1
+qm importdisk 125 fs01/FS01-disk001.vmdk local-lvm
+qm importdisk 125 fs01/FS01-disk003.vmdk local-lvm
+qm set 125 --sata0 local-lvm:vm-125-disk-0 --sata1 local-lvm:vm-125-disk-1 --boot order=sata0
+rm -rf fs01 FS01.ova
+```
+
+Comprobación (todo correcto a las 19:53) 📸:
+```bash
+qm list; for id in 123 124 125 126; do qm config $id | grep -E "name|sata|net0|boot|unused"; done; lvs | grep vm-12[3-6]; df -h /var/lib/vz
+```
+
+| VMID | VM | Discos | Estado |
+|---|---|---|---|
+| 123 | DC01 | `sata0` 50 G | Parada |
+| 124 | DC02 | `sata0` 50 G | Parada |
+| 125 | FS01 | `sata0` 50 G + `sata1` 150 G (datos) | Parada |
+| 126 | FS02 | `sata0` 50 G + `sata1` 150 G (datos) | Parada |
+
+Al terminar, la carpeta `import` queda vacía y `local` tiene 77 GB libres.
+
+**Incidencias:**
+- La primera extracción de DC01 se cortó (5,7 G de 15,3 G). La repetí; el disco quedó como `unused0` y lo conecté con `qm set 123 --sata0 local-lvm:vm-123-disk-0`.
+- En FS01 el disco de datos es el `disk003` (el `disk002` es el CD). Antes de importar hay que mirar en el `.ovf` qué disco es cada uno.
+- La importación de FS02 se cortó dos veces al salir de la shell web: `qm importdisk` se para al cerrar la sesión aunque se use `nohup`. Borré el disco a medias (`pvesm free local-lvm:vm-126-disk-N`) y lo repetí sin salir. Para la próxima vez: `systemd-run --unit=importar --collect qm importdisk ...`, que sigue aunque se cierre la shell.
+
+**Siguiente:** arrancar DC01 (`qm start 123`), volver a ponerle la IP 192.168.202.23/22 (puerta .254, DNS .24 y 127.0.0.1) en la tarjeta nueva y comprobar AD; después DC02, FS01 y FS02 (`repadmin /replsummary`, `Get-DfsnFolderTarget`, DFS-R). Las copias de VirtualBox ya no se encienden (apartado 2.4).
+
+### 2.10 DHCP: red aislada `vmbr1` (27/11, Oriol; diseño de Max)
+
+**Decisión:** el DHCP (Kea HA en LNX01 y LNX02) funciona solo en la red aislada `vmbr1`. Si repartiera direcciones en la red del aula, mientras el servidor estuviera encendido cualquier equipo del centro que se conectara podría recibir una IP nuestra en lugar de la del DHCP del centro y quedarse sin red. `vmbr1` es un puente de Proxmox que venía creado por defecto y no tiene tarjeta física, así que nada de lo que pase en él sale del servidor. **Alternativa descartada:** Kea en la red del aula con pool solo para clientes conocidos (un error de configuración seguiría afectando al centro). Los clientes CLI01 y CLI02 se quedan con IP fija en la red del aula.
+
+En la shell de Proxmox (`root@PROC`), comprobar que `vmbr1` existe y que no lo usa ninguna VM, y añadir una segunda tarjeta a LNX01 y LNX02 📸:
+```bash
+ip -br link show vmbr1; grep -l vmbr1 /etc/pve/qemu-server/*.conf
+qm set 128 --net1 virtio,bridge=vmbr1; qm set 129 --net1 virtio,bridge=vmbr1
+```
+
+Dentro de cada Linux la tarjeta nueva es `ens19`. La IP fija va en un fichero aparte, `/etc/netplan/60-vmbr1.yaml`, para no tocar el de `ens18` (LNX02 igual con 10.10.10.29):
+```yaml
+network:
+  version: 2
+  ethernets:
+    ens19:
+      addresses: [10.10.10.28/24]
+```
+Sin puerta de enlace ni DNS: es una red cerrada. Se aplica con:
+```bash
+sudo chmod 600 /etc/netplan/60-vmbr1.yaml && sudo netplan generate && sudo networkctl reload && sudo networkctl reconfigure ens19 && ip -br addr show ens19
+```
+No uso `netplan apply` porque vuelve a aplicar también `ens18` y podría quitar un momento la VIP .27 de Pacemaker.
+
+Comprobación: `ping -c 3 10.10.10.29` desde LNX01 correcto 📸.
+
+**Incidencias:** primero lancé los comandos de `vmbr1` dentro de LNX01 (ahí no existe; van en Proxmox). Sin `networkctl reload`, `ens19` seguía en `DOWN`. El `ssh` desde el PC del aula fallaba por los permisos de `C:\Users\AlumnoT\.ssh\config` → `ssh -F NUL admincibernova@192.168.202.28`.
+
+**Falta:** subred 10.10.10.0/24 y pool 10.10.10.100–200 [PENDIENTE DE CONFIRMAR con Max]; instalar y configurar Kea HA hot-standby; abrir en `ufw` 67/udp y el puerto de HA; VM de prueba en `vmbr1` y prueba de caída (PR-05).
 
 ## 3. DC01 – Controlador de dominio principal
 
@@ -984,7 +1115,10 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 - [x] Ejecutar el script 02 v2.2 en DC01 y hacer las capturas (16/11).
 - [ ] Exportar DC01 a OVA, importarlo en Proxmox y comprobar red, DNS (`dcdiag /test:dns`) y rendimiento (pasa a la sesión 2, D-05).
 - [x] Crear DC02 (instalación limpia, no clon de DC01), promoverlo y comprobar la replicación (`repadmin /replsummary`): 19/11, en VirtualBox.
-- [ ] Exportar DC01 y DC02 a OVA e importarlos en Proxmox (123 y 124, DC01 primero). **OVA exportadas el 27/11** (también FS01 y FS02); falta importar.
+- [x] Exportar DC01 y DC02 a OVA e importarlos en Proxmox (123 y 124). **Importados el 27/11**, con FS01 (125) y FS02 (126), apartado 2.9.
+- [ ] Arrancar DC01, DC02, FS01 y FS02 en Proxmox, volver a poner la IP y comprobar AD, DNS y DFS-R.
+- [x] Red aislada `vmbr1` para el DHCP en LNX01 y LNX02 (27/11, apartado 2.10).
+- [ ] Kea HA en `vmbr1` y prueba con una VM cliente (PR-05).
 - [x] LNX01 instalada en VirtualBox y exportada a OVA (17/11, apartado 2.3.1).
 - [x] Importar LNX01 en Proxmox (VMID 128, 17/11). WEB01 y las demás VMs antiguas, borradas.
 - [x] Netplan fijo de LNX01 con DNS públicos (17/11).
@@ -995,9 +1129,11 @@ Las contraseñas no se escriben en la documentación, Drive ni Git (requisito de
 - [x] AG de SQL Server `sqlag_cibernova` (certificados, *endpoints*, réplica de solo configuración en BKP01), recursos de Pacemaker y VIP .27 (24/11, apartado 2.3.8).
 - [x] Base de datos de prueba en el AG y pruebas de conmutación manual y de caída (26/11, apartado 2.3.9; punto de control del 1/12 cumplido).
 - [x] Apache + PHP-FPM con `sqlsrv` en LNX01/LNX02 y Apache en Pacemaker con la VIP (26/11, apartado 2.3.9).
-- [ ] Firewall `ufw` en LNX02 (LNX01 y BKP01 hechos el 26/11) y BKP02.
-- [ ] SFTP con *chroot* en LNX01 y LNX02 y prueba de caída.
-- [ ] Aplicación web definitiva (WEB-01) y método para copiar el contenido a los dos nodos (WEB-03).
+- [x] Firewall `ufw` en LNX02 y BKP02 (27/11, apartado 2.3.10).
+- [ ] SFTP con *chroot* en LNX01 y LNX02 y prueba de caída (claves de host y copia de datos hechas el 27/11; falta el dominio).
+- [x] Bareos: copias, copia a BKP02, PR-06, calendario, copia de BKP01 y Director en espera (27/11, apartado 2.3.10). Falta la prueba de activación del Director y los agentes de Windows.
+- [ ] DHCP: Kea HA en `vmbr1` hecho (27/11); falta la prueba de caída con la VM de prueba (PR-05).
+- [x] Aplicación web (Portal CiberNova, WEB-01) y copia del contenido a los dos nodos (WEB-03) (27/11, apartado 2.3.10).
 - [ ] **Todo subido a GitHub antes del 4/12/2026** (cierre del repositorio).
 - [x] OU Equipos y Servidores: script 01 v2.1 ejecutado en DC01, 23 OU (16/11).
 - [x] Ejecutar `03-cuentas-especiales.ps1` en DC01: 26 comprobaciones OK (16/11).
